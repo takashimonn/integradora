@@ -1,69 +1,28 @@
-const Usuario = require('../models/Usuario');
-const { generateToken } = require('../utils/jwt');
-const { ValidationError, UniqueConstraintError } = require('sequelize');
+const usuarioService = require('../services/usuarioService');
 
 class UsuarioController {
   // Registrar nuevo usuario
   async registrar(req, res) {
     try {
-      const { nombre, email, password } = req.body;
-
-      // Validar que todos los campos estén presentes
-      if (!nombre || !email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Todos los campos son requeridos: nombre, email, password'
-        });
-      }
-
-      // Crear usuario
-      const usuario = await Usuario.create({
-        nombre,
-        email,
-        password
-      });
-
-      // Generar token
-      const token = generateToken({
-        id: usuario.id,
-        email: usuario.email
-      });
+      const resultado = await usuarioService.registrarUsuario(req.body);
 
       res.status(201).json({
         success: true,
         message: 'Usuario registrado exitosamente',
-        data: {
-          usuario: usuario.toJSON(),
-          token
-        }
+        data: resultado
       });
 
     } catch (error) {
-      // Manejar errores de validación de Sequelize
-      if (error instanceof ValidationError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Error de validación',
-          errors: error.errors.map(err => ({
-            campo: err.path,
-            mensaje: err.message
-          }))
-        });
-      }
+      const errorInfo = usuarioService.manejarError(error);
+      
+      let statusCode = 500;
+      if (errorInfo.tipo === 'VALIDACION') statusCode = 400;
+      if (errorInfo.tipo === 'DUPLICADO') statusCode = 409;
 
-      // Manejar error de email duplicado
-      if (error instanceof UniqueConstraintError) {
-        return res.status(409).json({
-          success: false,
-          message: 'Este email ya está registrado'
-        });
-      }
-
-      console.error('Error en registro:', error);
-      res.status(500).json({
+      res.status(statusCode).json({
         success: false,
-        message: 'Error al registrar usuario',
-        error: error.message
+        message: errorInfo.mensaje,
+        ...(errorInfo.errores && { errors: errorInfo.errores })
       });
     }
   }
@@ -72,67 +31,21 @@ class UsuarioController {
   async login(req, res) {
     try {
       const { email, password } = req.body;
-
-      // Validar que ambos campos estén presentes
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email y contraseña son requeridos'
-        });
-      }
-
-      // Buscar usuario por email
-      const usuario = await Usuario.findOne({
-        where: { email }
-      });
-
-      // Verificar si el usuario existe
-      if (!usuario) {
-        return res.status(401).json({
-          success: false,
-          message: 'Credenciales inválidas'
-        });
-      }
-
-      // Verificar si el usuario está activo
-      if (!usuario.activo) {
-        return res.status(403).json({
-          success: false,
-          message: 'Tu cuenta ha sido desactivada'
-        });
-      }
-
-      // Verificar contraseña
-      const isPasswordValid = await usuario.comparePassword(password);
-
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Credenciales inválidas'
-        });
-      }
-
-      // Generar token
-      const token = generateToken({
-        id: usuario.id,
-        email: usuario.email
-      });
+      const resultado = await usuarioService.loginUsuario(email, password);
 
       res.json({
         success: true,
         message: 'Login exitoso',
-        data: {
-          usuario: usuario.toJSON(),
-          token
-        }
+        data: resultado
       });
 
     } catch (error) {
-      console.error('Error en login:', error);
-      res.status(500).json({
+      const statusCode = error.message.includes('Credenciales') ? 401 : 
+                        error.message.includes('desactivada') ? 403 : 500;
+      
+      res.status(statusCode).json({
         success: false,
-        message: 'Error al iniciar sesión',
-        error: error.message
+        message: error.message
       });
     }
   }
@@ -140,30 +53,17 @@ class UsuarioController {
   // Obtener perfil del usuario autenticado
   async obtenerPerfil(req, res) {
     try {
-      const usuarioId = req.usuario.id;
-
-      const usuario = await Usuario.findByPk(usuarioId);
-
-      if (!usuario) {
-        return res.status(404).json({
-          success: false,
-          message: 'Usuario no encontrado'
-        });
-      }
+      const usuario = await usuarioService.obtenerUsuarioPorId(req.usuario.id);
 
       res.json({
         success: true,
-        data: {
-          usuario: usuario.toJSON()
-        }
+        data: { usuario }
       });
 
     } catch (error) {
-      console.error('Error al obtener perfil:', error);
-      res.status(500).json({
+      res.status(404).json({
         success: false,
-        message: 'Error al obtener perfil',
-        error: error.message
+        message: error.message
       });
     }
   }
@@ -171,56 +71,26 @@ class UsuarioController {
   // Actualizar perfil
   async actualizarPerfil(req, res) {
     try {
-      const usuarioId = req.usuario.id;
-      const { nombre, email } = req.body;
-
-      const usuario = await Usuario.findByPk(usuarioId);
-
-      if (!usuario) {
-        return res.status(404).json({
-          success: false,
-          message: 'Usuario no encontrado'
-        });
-      }
-
-      // Actualizar campos
-      if (nombre) usuario.nombre = nombre;
-      if (email) usuario.email = email;
-
-      await usuario.save();
+      const usuario = await usuarioService.actualizarUsuario(req.usuario.id, req.body);
 
       res.json({
         success: true,
         message: 'Perfil actualizado exitosamente',
-        data: {
-          usuario: usuario.toJSON()
-        }
+        data: { usuario }
       });
 
     } catch (error) {
-      if (error instanceof ValidationError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Error de validación',
-          errors: error.errors.map(err => ({
-            campo: err.path,
-            mensaje: err.message
-          }))
-        });
-      }
+      const errorInfo = usuarioService.manejarError(error);
+      
+      let statusCode = 500;
+      if (errorInfo.tipo === 'VALIDACION') statusCode = 400;
+      if (errorInfo.tipo === 'DUPLICADO') statusCode = 409;
+      if (error.message.includes('no encontrado')) statusCode = 404;
 
-      if (error instanceof UniqueConstraintError) {
-        return res.status(409).json({
-          success: false,
-          message: 'Este email ya está en uso'
-        });
-      }
-
-      console.error('Error al actualizar perfil:', error);
-      res.status(500).json({
+      res.status(statusCode).json({
         success: false,
-        message: 'Error al actualizar perfil',
-        error: error.message
+        message: errorInfo.mensaje || error.message,
+        ...(errorInfo.errores && { errors: errorInfo.errores })
       });
     }
   }

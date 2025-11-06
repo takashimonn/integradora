@@ -1,13 +1,22 @@
 const express = require('express');
+const path = require('path');
 require('dotenv').config();
 const { testConnection, syncDatabase } = require('./config/sequelize');
 const authRoutes = require('./routes/authRoutes');
+const productRoutes = require('./modules/products/routes/productRoutes');
+
+// Importar modelos para que Sequelize los registre
+require('./models/Usuario');
+require('./modules/products/models/Producto');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware para leer JSON
 app.use(express.json());
+
+// Servir archivos estáticos (imágenes subidas)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS (para cuando conectes tu app móvil)
 app.use((req, res, next) => {
@@ -31,13 +40,18 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       registro: 'POST /api/auth/registro',
       login: 'POST /api/auth/login',
-      perfil: 'GET /api/auth/perfil (requiere token)'
+      perfil: 'GET /api/auth/perfil (requiere token)',
+      products: '/api/products',
+      productos: 'GET, POST, PUT, DELETE /api/products'
     }
   });
 });
 
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
+
+// Rutas de productos
+app.use('/api/products', productRoutes);
 
 // Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
@@ -80,10 +94,17 @@ app.use((err, req, res, next) => {
 app.listen(PORT, async () => {
   console.log(`\n🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📝 Endpoints disponibles:`);
+  console.log(`\n🔐 Autenticación:`);
   console.log(`   POST /api/auth/registro - Registrar nuevo usuario`);
   console.log(`   POST /api/auth/login - Iniciar sesión`);
   console.log(`   GET  /api/auth/perfil - Obtener perfil (requiere token)`);
-  console.log(`   PUT  /api/auth/perfil - Actualizar perfil (requiere token)\n`);
+  console.log(`   PUT  /api/auth/perfil - Actualizar perfil (requiere token)`);
+  console.log(`\n📦 Productos:`);
+  console.log(`   GET    /api/products - Obtener todos los productos`);
+  console.log(`   GET    /api/products/:id - Obtener producto por ID`);
+  console.log(`   POST   /api/products - Crear producto (con foto opcional)`);
+  console.log(`   PUT    /api/products/:id - Actualizar producto (con foto opcional)`);
+  console.log(`   DELETE /api/products/:id - Eliminar producto\n`);
   
   // Probar conexión y sincronizar modelos
   const connected = await testConnection();
