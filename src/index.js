@@ -4,10 +4,12 @@ require('dotenv').config();
 const { testConnection, syncDatabase } = require('./config/sequelize');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./modules/products/routes/productRoutes');
+const productionRoutes = require('./modules/production/routes/productionRoutes');
 
 // Importar modelos para que Sequelize los registre
 require('./models/Usuario');
 require('./modules/products/models/Producto');
+require('./modules/production/models/Produccion');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -42,7 +44,9 @@ app.get('/', (req, res) => {
       login: 'POST /api/auth/login',
       perfil: 'GET /api/auth/perfil (requiere token)',
       products: '/api/products',
-      productos: 'GET, POST, PUT, DELETE /api/products'
+      productos: 'GET, POST, PUT, DELETE /api/products',
+      production: '/api/production',
+      produccion: 'GET, POST, PUT, DELETE /api/production'
     }
   });
 });
@@ -52,6 +56,9 @@ app.use('/api/auth', authRoutes);
 
 // Rutas de productos
 app.use('/api/products', productRoutes);
+
+// Rutas de producción
+app.use('/api/production', productionRoutes);
 
 // Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
@@ -104,7 +111,15 @@ app.listen(PORT, async () => {
   console.log(`   GET    /api/products/:id - Obtener producto por ID`);
   console.log(`   POST   /api/products - Crear producto (con foto opcional)`);
   console.log(`   PUT    /api/products/:id - Actualizar producto (con foto opcional)`);
-  console.log(`   DELETE /api/products/:id - Eliminar producto\n`);
+  console.log(`   DELETE /api/products/:id - Eliminar producto`);
+  console.log(`\n🏭 Producción:`);
+  console.log(`   GET    /api/production - Obtener todos los registros`);
+  console.log(`   GET    /api/production/:id - Obtener registro por ID`);
+  console.log(`   GET    /api/production/fecha/:fecha - Obtener registro por fecha`);
+  console.log(`   GET    /api/production/estadisticas - Obtener estadísticas`);
+  console.log(`   POST   /api/production - Crear registro de producción del día`);
+  console.log(`   PUT    /api/production/:id - Actualizar registro`);
+  console.log(`   DELETE /api/production/:id - Eliminar registro\n`);
   
   // Probar conexión y sincronizar modelos
   const connected = await testConnection();
