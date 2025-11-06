@@ -5,11 +5,13 @@ const { testConnection, syncDatabase } = require('./config/sequelize');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./modules/products/routes/productRoutes');
 const productionRoutes = require('./modules/production/routes/productionRoutes');
+const deliveryRoutes = require('./modules/deliveries/routes/deliveryRoutes');
 
 // Importar modelos para que Sequelize los registre
 require('./models/Usuario');
 require('./modules/products/models/Producto');
 require('./modules/production/models/Produccion');
+require('./modules/deliveries/models/Reparto');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -46,7 +48,9 @@ app.get('/', (req, res) => {
       products: '/api/products',
       productos: 'GET, POST, PUT, DELETE /api/products',
       production: '/api/production',
-      produccion: 'GET, POST, PUT, DELETE /api/production'
+      produccion: 'GET, POST, PUT, DELETE /api/production',
+      deliveries: '/api/deliveries',
+      repartos: 'GET, POST, PUT, DELETE /api/deliveries'
     }
   });
 });
@@ -59,6 +63,9 @@ app.use('/api/products', productRoutes);
 
 // Rutas de producción
 app.use('/api/production', productionRoutes);
+
+// Rutas de repartos
+app.use('/api/deliveries', deliveryRoutes);
 
 // Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
@@ -119,7 +126,15 @@ app.listen(PORT, async () => {
   console.log(`   GET    /api/production/estadisticas - Obtener estadísticas`);
   console.log(`   POST   /api/production - Crear registro de producción del día`);
   console.log(`   PUT    /api/production/:id - Actualizar registro`);
-  console.log(`   DELETE /api/production/:id - Eliminar registro\n`);
+  console.log(`   DELETE /api/production/:id - Eliminar registro`);
+  console.log(`\n🚚 Repartos:`);
+  console.log(`   GET    /api/deliveries - Obtener todos los repartos`);
+  console.log(`   GET    /api/deliveries/:id - Obtener reparto por ID`);
+  console.log(`   GET    /api/deliveries/destino/:destino - Obtener repartos por destino`);
+  console.log(`   GET    /api/deliveries/estadisticas - Obtener estadísticas`);
+  console.log(`   POST   /api/deliveries - Crear nuevo reparto`);
+  console.log(`   PUT    /api/deliveries/:id - Actualizar reparto`);
+  console.log(`   DELETE /api/deliveries/:id - Eliminar reparto\n`);
   
   // Probar conexión y sincronizar modelos
   const connected = await testConnection();
