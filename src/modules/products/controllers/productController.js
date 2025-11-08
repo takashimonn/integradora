@@ -7,12 +7,7 @@ class ProductController {
    */
   async obtenerTodos(req, res) {
     try {
-      const { activo } = req.query;
       const filtros = {};
-
-      if (activo !== undefined) {
-        filtros.activo = activo === 'true';
-      }
 
       const productos = await productService.obtenerTodos(filtros);
 
@@ -62,9 +57,9 @@ class ProductController {
   async crear(req, res) {
     try {
       const datos = req.body;
-      const fotoPath = req.file ? `/uploads/products/${req.file.filename}` : null;
+      const imagenPath = req.file ? `/uploads/products/${req.file.filename}` : null;
 
-      const producto = await productService.crear(datos, fotoPath);
+      const producto = await productService.crear(datos, imagenPath);
 
       res.status(201).json({
         success: true,
@@ -88,9 +83,9 @@ class ProductController {
     try {
       const { id } = req.params;
       const datos = req.body;
-      const fotoPath = req.file ? `/uploads/products/${req.file.filename}` : null;
+      const imagenPath = req.file ? `/uploads/products/${req.file.filename}` : null;
 
-      const producto = await productService.actualizar(id, datos, fotoPath);
+      const producto = await productService.actualizar(id, datos, imagenPath);
 
       res.json({
         success: true,

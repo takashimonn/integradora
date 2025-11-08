@@ -30,7 +30,9 @@ async function authenticate(req, res, next) {
     const decoded = verifyToken(token);
 
     // Buscar usuario en la base de datos
-    const usuario = await Usuario.findByPk(decoded.id);
+    // Compatibilidad: acepta tanto 'id_usuario' como 'id' en el token
+    const usuarioId = decoded.id_usuario || decoded.id;
+    const usuario = await Usuario.findByPk(usuarioId);
 
     if (!usuario) {
       return res.status(401).json({

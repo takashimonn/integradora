@@ -54,10 +54,12 @@ router.get('/', productController.obtenerTodos.bind(productController));
 router.get('/:id', productController.obtenerPorId.bind(productController));
 
 // POST /api/products - Crear nuevo producto (con imagen opcional)
-router.post('/', upload.single('foto'), productController.crear.bind(productController));
+// El campo del formulario debe llamarse 'imagen' o 'foto'
+router.post('/', upload.single('imagen'), productController.crear.bind(productController));
 
 // PUT /api/products/:id - Actualizar producto (con imagen opcional)
-router.put('/:id', upload.single('foto'), productController.actualizar.bind(productController));
+// El campo del formulario debe llamarse 'imagen' o 'foto'
+router.put('/:id', upload.single('imagen'), productController.actualizar.bind(productController));
 
 // DELETE /api/products/:id - Eliminar producto
 router.delete('/:id', productController.eliminar.bind(productController));

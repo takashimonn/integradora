@@ -53,7 +53,7 @@ class UsuarioController {
   // Obtener perfil del usuario autenticado
   async obtenerPerfil(req, res) {
     try {
-      const usuario = await usuarioService.obtenerUsuarioPorId(req.usuario.id);
+      const usuario = await usuarioService.obtenerUsuarioPorId(req.usuario.id_usuario);
 
       res.json({
         success: true,
@@ -71,7 +71,7 @@ class UsuarioController {
   // Actualizar perfil
   async actualizarPerfil(req, res) {
     try {
-      const usuario = await usuarioService.actualizarUsuario(req.usuario.id, req.body);
+      const usuario = await usuarioService.actualizarUsuario(req.usuario.id_usuario, req.body);
 
       res.json({
         success: true,

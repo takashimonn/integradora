@@ -3,10 +3,11 @@ const { sequelize } = require('../config/sequelize');
 const bcrypt = require('bcryptjs');
 
 const Usuario = sequelize.define('Usuario', {
-  id: {
+  id_usuario: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    autoIncrement: true
+    autoIncrement: true,
+    field: 'id_usuario'
   },
   nombre: {
     type: DataTypes.STRING(100),
@@ -48,6 +49,15 @@ const Usuario = sequelize.define('Usuario', {
         args: [6, 255],
         msg: 'La contraseña debe tener al menos 6 caracteres'
       }
+    }
+  },
+  id_sucursal: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'id_sucursal',
+    references: {
+      model: 'sucursales',
+      key: 'id_sucursal'
     }
   },
   activo: {

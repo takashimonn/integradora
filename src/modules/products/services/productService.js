@@ -40,34 +40,27 @@ class ProductService {
    * @returns {Promise<Object>}
    */
   async crear(datos, fotoPath = null) {
-    const { nombre, descripcion, precio, unidadMedida, stock } = datos;
+    const { descripcion, precio, unidad_medida } = datos;
 
     // Validaciones básicas
-    if (!nombre || !precio) {
-      throw new Error('Nombre y precio son requeridos');
+    if (!precio) {
+      throw new Error('El precio es requerido');
     }
 
     if (precio < 0) {
       throw new Error('El precio no puede ser negativo');
     }
 
-    if (stock !== undefined && stock < 0) {
-      throw new Error('El stock no puede ser negativo');
-    }
-
-    // Preparar datos
+    // Preparar datos según el esquema de la BD
     const datosProducto = {
-      nombre,
       descripcion: descripcion || null,
       precio: parseFloat(precio),
-      unidadMedida: unidadMedida || 'unidad',
-      stock: stock !== undefined ? parseInt(stock) : 0,
-      activo: true
+      unidad_medida: unidad_medida || null
     };
 
-    // Si hay foto, agregar la ruta
+    // Si hay imagen, agregar la ruta
     if (fotoPath) {
-      datosProducto.foto = fotoPath;
+      datosProducto.imagen = fotoPath;
     }
 
     try {
@@ -90,35 +83,28 @@ class ProductService {
       throw new Error('ID de producto inválido');
     }
 
-    const { nombre, descripcion, precio, unidadMedida, stock, activo } = datos;
+    const { descripcion, precio, unidad_medida } = datos;
 
     // Validaciones
     if (precio !== undefined && precio < 0) {
       throw new Error('El precio no puede ser negativo');
     }
 
-    if (stock !== undefined && stock < 0) {
-      throw new Error('El stock no puede ser negativo');
-    }
-
-    // Preparar datos a actualizar
+    // Preparar datos a actualizar según el esquema de la BD
     const datosActualizar = {};
     
-    if (nombre !== undefined) datosActualizar.nombre = nombre;
     if (descripcion !== undefined) datosActualizar.descripcion = descripcion;
     if (precio !== undefined) datosActualizar.precio = parseFloat(precio);
-    if (unidadMedida !== undefined) datosActualizar.unidadMedida = unidadMedida;
-    if (stock !== undefined) datosActualizar.stock = parseInt(stock);
-    if (activo !== undefined) datosActualizar.activo = activo;
+    if (unidad_medida !== undefined) datosActualizar.unidad_medida = unidad_medida;
 
-    // Si hay nueva foto
+    // Si hay nueva imagen
     if (fotoPath) {
-      // Obtener producto actual para eliminar foto anterior si existe
+      // Obtener producto actual para eliminar imagen anterior si existe
       const productoActual = await productRepository.findById(id);
-      if (productoActual && productoActual.foto) {
-        this.eliminarFoto(productoActual.foto);
+      if (productoActual && productoActual.imagen) {
+        this.eliminarFoto(productoActual.imagen);
       }
-      datosActualizar.foto = fotoPath;
+      datosActualizar.imagen = fotoPath;
     }
 
     try {
@@ -161,7 +147,7 @@ class ProductService {
     if (!fotoPath) return;
 
     try {
-      // Si la foto está en el sistema de archivos, eliminarla
+      // Si la imagen está en el sistema de archivos, eliminarla
       if (fotoPath.startsWith('/uploads') || fotoPath.startsWith('uploads')) {
         const rutaCompleta = path.join(__dirname, '../../../', fotoPath);
         if (fs.existsSync(rutaCompleta)) {
@@ -169,7 +155,7 @@ class ProductService {
         }
       }
     } catch (error) {
-      console.error('Error al eliminar foto:', error);
+      console.error('Error al eliminar imagen:', error);
       // No lanzamos error, solo logueamos
     }
   }

@@ -21,7 +21,7 @@ class UsuarioService {
 
     // Generar token
     const token = generateToken({
-      id: usuario.id,
+      id_usuario: usuario.id_usuario,
       email: usuario.email
     });
 
@@ -60,7 +60,7 @@ class UsuarioService {
 
     // Generar token
     const token = generateToken({
-      id: usuario.id,
+      id_usuario: usuario.id_usuario,
       email: usuario.email
     });
 

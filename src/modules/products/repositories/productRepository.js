@@ -8,20 +8,16 @@ class ProductRepository {
    */
   async findAll(filtros = {}) {
     const where = {};
-    
-    if (filtros.activo !== undefined) {
-      where.activo = filtros.activo;
-    }
 
     return await Producto.findAll({
       where,
-      order: [['createdAt', 'DESC']]
+      order: [['id_producto', 'DESC']]
     });
   }
 
   /**
    * Obtener un producto por ID
-   * @param {number} id - ID del producto
+   * @param {number} id - ID del producto (id_producto)
    * @returns {Promise<Producto|null>}
    */
   async findById(id) {
@@ -55,7 +51,7 @@ class ProductRepository {
   }
 
   /**
-   * Eliminar un producto (soft delete - desactivar)
+   * Eliminar un producto (hard delete)
    * @param {number} id - ID del producto
    * @returns {Promise<boolean>}
    */
@@ -66,8 +62,7 @@ class ProductRepository {
       throw new Error('Producto no encontrado');
     }
 
-    // Soft delete: solo desactivamos
-    await producto.update({ activo: false });
+    await producto.destroy();
     return true;
   }
 

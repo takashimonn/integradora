@@ -9,11 +9,19 @@ const deliveryRoutes = require('./modules/deliveries/routes/deliveryRoutes');
 const orderRoutes = require('./modules/orders/routes/orderRoutes');
 
 // Importar modelos para que Sequelize los registre
+require('./models/Cliente');
+require('./models/Ubicacion');
+require('./models/Sucursal');
 require('./models/Usuario');
+require('./models/PedidoProducto');
+require('./models/Reporte');
 require('./modules/products/models/Producto');
 require('./modules/production/models/Produccion');
 require('./modules/deliveries/models/Reparto');
 require('./modules/orders/models/Pedido');
+
+// Configurar relaciones entre modelos
+require('./models/associations');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
