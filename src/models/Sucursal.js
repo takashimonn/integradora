@@ -20,6 +20,11 @@ const Sucursal = sequelize.define('Sucursal', {
   ubicacion: {
     type: DataTypes.STRING(255),
     allowNull: true
+  },
+  imagen: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'URL o ruta de la imagen de la sucursal'
   }
 }, {
   tableName: 'sucursales',

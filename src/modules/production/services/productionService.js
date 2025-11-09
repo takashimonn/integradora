@@ -51,38 +51,36 @@ class ProductionService {
    * @returns {Promise<Object>}
    */
   async crear(datos) {
-    const { fecha, charolasCuartoKilo, charolasMedioKilo, domosUnKilo, notas } = datos;
+    const { produccion_kg, total, devolucion, id_cliente } = datos;
 
     // Validaciones básicas
-    if (!fecha) {
-      throw new Error('La fecha es requerida');
-    }
-
-    // Validar que no exista un registro para esa fecha
-    const existe = await productionRepository.findByFecha(fecha);
-    if (existe) {
-      throw new Error('Ya existe un registro de producción para esta fecha');
-    }
-
-    // Validar que al menos una cantidad sea mayor a 0
-    const total = (charolasCuartoKilo || 0) + (charolasMedioKilo || 0) + (domosUnKilo || 0);
-    if (total === 0) {
-      throw new Error('Debe registrar al menos una charola o domo');
+    if (!id_cliente) {
+      throw new Error('El cliente es requerido');
     }
 
     // Validaciones de valores negativos
-    if (charolasCuartoKilo < 0 || charolasMedioKilo < 0 || domosUnKilo < 0) {
-      throw new Error('Las cantidades no pueden ser negativas');
+    if (produccion_kg !== undefined && produccion_kg < 0) {
+      throw new Error('La producción en kg no puede ser negativa');
     }
 
-    // Preparar datos
+    if (total !== undefined && total < 0) {
+      throw new Error('El total no puede ser negativo');
+    }
+
+    if (devolucion !== undefined && devolucion < 0) {
+      throw new Error('La devolución no puede ser negativa');
+    }
+
+    // Obtener fecha de hoy en formato YYYY-MM-DD
+    const fechaHoy = new Date().toISOString().split('T')[0];
+
+    // Preparar datos según el esquema de la BD
     const datosRegistro = {
-      fecha,
-      charolasCuartoKilo: parseInt(charolasCuartoKilo) || 0,
-      charolasMedioKilo: parseInt(charolasMedioKilo) || 0,
-      domosUnKilo: parseInt(domosUnKilo) || 0,
-      notas: notas || null,
-      activo: true
+      produccion_kg: produccion_kg !== undefined ? parseFloat(produccion_kg) : null,
+      total: total !== undefined ? parseFloat(total) : null,
+      devolucion: devolucion !== undefined ? parseFloat(devolucion) : null,
+      id_cliente: parseInt(id_cliente),
+      fecha: fechaHoy
     };
 
     try {
@@ -104,36 +102,28 @@ class ProductionService {
       throw new Error('ID de registro inválido');
     }
 
-    const { fecha, charolasCuartoKilo, charolasMedioKilo, domosUnKilo, notas, activo } = datos;
-
-    // Si se actualiza la fecha, verificar que no exista otro registro con esa fecha
-    if (fecha) {
-      const registroExistente = await productionRepository.findByFecha(fecha);
-      if (registroExistente && registroExistente.id !== parseInt(id)) {
-        throw new Error('Ya existe un registro de producción para esta fecha');
-      }
-    }
+    const { produccion_kg, total, devolucion, id_cliente } = datos;
 
     // Validaciones de valores negativos
-    if (charolasCuartoKilo !== undefined && charolasCuartoKilo < 0) {
-      throw new Error('Las charolas de 1/4 kg no pueden ser negativas');
-    }
-    if (charolasMedioKilo !== undefined && charolasMedioKilo < 0) {
-      throw new Error('Las charolas de 1/2 kg no pueden ser negativas');
-    }
-    if (domosUnKilo !== undefined && domosUnKilo < 0) {
-      throw new Error('Los domos de 1 kg no pueden ser negativos');
+    if (produccion_kg !== undefined && produccion_kg < 0) {
+      throw new Error('La producción en kg no puede ser negativa');
     }
 
-    // Preparar datos a actualizar
+    if (total !== undefined && total < 0) {
+      throw new Error('El total no puede ser negativo');
+    }
+
+    if (devolucion !== undefined && devolucion < 0) {
+      throw new Error('La devolución no puede ser negativa');
+    }
+
+    // Preparar datos a actualizar según el esquema de la BD
     const datosActualizar = {};
     
-    if (fecha !== undefined) datosActualizar.fecha = fecha;
-    if (charolasCuartoKilo !== undefined) datosActualizar.charolasCuartoKilo = parseInt(charolasCuartoKilo);
-    if (charolasMedioKilo !== undefined) datosActualizar.charolasMedioKilo = parseInt(charolasMedioKilo);
-    if (domosUnKilo !== undefined) datosActualizar.domosUnKilo = parseInt(domosUnKilo);
-    if (notas !== undefined) datosActualizar.notas = notas;
-    if (activo !== undefined) datosActualizar.activo = activo;
+    if (produccion_kg !== undefined) datosActualizar.produccion_kg = parseFloat(produccion_kg);
+    if (total !== undefined) datosActualizar.total = parseFloat(total);
+    if (devolucion !== undefined) datosActualizar.devolucion = parseFloat(devolucion);
+    if (id_cliente !== undefined) datosActualizar.id_cliente = parseInt(id_cliente);
 
     try {
       const registro = await productionRepository.update(id, datosActualizar);

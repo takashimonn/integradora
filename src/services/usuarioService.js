@@ -1,6 +1,9 @@
 const Usuario = require('../models/Usuario');
+const Sucursal = require('../models/Sucursal');
 const { generateToken } = require('../utils/jwt');
 const { ValidationError, UniqueConstraintError } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
 
 class UsuarioService {
   // Registrar nuevo usuario
@@ -79,6 +82,88 @@ class UsuarioService {
     }
 
     return usuario.toJSON();
+  }
+
+  // Obtener sucursal del usuario autenticado
+  async obtenerSucursalUsuario(idUsuario) {
+    const usuario = await Usuario.findByPk(idUsuario, {
+      include: [{
+        model: Sucursal,
+        as: 'sucursal',
+        attributes: ['id_sucursal', 'gerente', 'ubicacion', 'imagen']
+      }]
+    });
+
+    if (!usuario) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (!usuario.id_sucursal) {
+      throw new Error('El usuario no tiene una sucursal asignada');
+    }
+
+    if (!usuario.sucursal) {
+      throw new Error('Sucursal no encontrada');
+    }
+
+    return usuario.sucursal.toJSON();
+  }
+
+  // Actualizar imagen de la sucursal del usuario autenticado
+  async actualizarImagenSucursal(idUsuario, imagenPath) {
+    // Obtener usuario con su sucursal
+    const usuario = await Usuario.findByPk(idUsuario, {
+      include: [{
+        model: Sucursal,
+        as: 'sucursal'
+      }]
+    });
+
+    if (!usuario) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (!usuario.id_sucursal) {
+      throw new Error('El usuario no tiene una sucursal asignada');
+    }
+
+    if (!usuario.sucursal) {
+      throw new Error('Sucursal no encontrada');
+    }
+
+    // Guardar ruta de imagen anterior para eliminarla después
+    const imagenAnterior = usuario.sucursal.imagen;
+
+    // Actualizar la imagen de la sucursal
+    await usuario.sucursal.update({ imagen: imagenPath });
+
+    // Eliminar imagen anterior si existe
+    if (imagenAnterior) {
+      this.eliminarImagen(imagenAnterior);
+    }
+
+    // Recargar la sucursal para obtener los datos actualizados
+    await usuario.sucursal.reload();
+
+    return usuario.sucursal.toJSON();
+  }
+
+  // Eliminar imagen de sucursal
+  eliminarImagen(imagenPath) {
+    if (!imagenPath) return;
+
+    try {
+      // Si la imagen está en el sistema de archivos, eliminarla
+      if (imagenPath.startsWith('/uploads') || imagenPath.startsWith('uploads')) {
+        const rutaCompleta = path.join(__dirname, '../', imagenPath);
+        if (fs.existsSync(rutaCompleta)) {
+          fs.unlinkSync(rutaCompleta);
+        }
+      }
+    } catch (error) {
+      console.error('Error al eliminar imagen de sucursal:', error);
+      // No lanzamos error, solo logueamos
+    }
   }
 
   // Actualizar usuario

@@ -7,6 +7,7 @@ const productRoutes = require('./modules/products/routes/productRoutes');
 const productionRoutes = require('./modules/production/routes/productionRoutes');
 const deliveryRoutes = require('./modules/deliveries/routes/deliveryRoutes');
 const orderRoutes = require('./modules/orders/routes/orderRoutes');
+const clientRoutes = require('./modules/clients/routes/clientRoutes');
 
 // Importar modelos para que Sequelize los registre
 require('./models/Cliente');
@@ -62,7 +63,9 @@ app.get('/', (req, res) => {
       deliveries: '/api/deliveries',
       repartos: 'GET, POST, PUT, DELETE /api/deliveries',
       orders: '/api/orders',
-      pedidos: 'GET, POST, PUT, DELETE /api/orders'
+      pedidos: 'GET, POST, PUT, DELETE /api/orders',
+      clients: '/api/clients',
+      clientes: 'GET, POST, PUT, DELETE /api/clients'
     }
   });
 });
@@ -81,6 +84,9 @@ app.use('/api/deliveries', deliveryRoutes);
 
 // Rutas de pedidos
 app.use('/api/orders', orderRoutes);
+
+// Rutas de clientes
+app.use('/api/clients', clientRoutes);
 
 // Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
@@ -161,7 +167,13 @@ app.listen(PORT, async () => {
   console.log(`   POST   /api/orders/:id/reenviar-notificacion - Reenviar notificación`);
   console.log(`   PUT    /api/orders/:id - Actualizar pedido`);
   console.log(`   PUT    /api/orders/:id/estado - Actualizar estado del pedido`);
-  console.log(`   DELETE /api/orders/:id - Eliminar pedido\n`);
+  console.log(`   DELETE /api/orders/:id - Eliminar pedido`);
+  console.log(`\n👥 Clientes:`);
+  console.log(`   GET    /api/clients - Obtener todos los clientes`);
+  console.log(`   GET    /api/clients/:id - Obtener cliente por ID`);
+  console.log(`   POST   /api/clients - Crear nuevo cliente`);
+  console.log(`   PUT    /api/clients/:id - Actualizar cliente`);
+  console.log(`   DELETE /api/clients/:id - Eliminar cliente\n`);
   
   // Probar conexión y sincronizar modelos
   const connected = await testConnection();

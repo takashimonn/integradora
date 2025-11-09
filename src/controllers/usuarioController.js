@@ -94,6 +94,71 @@ class UsuarioController {
       });
     }
   }
+
+  // Obtener sucursal del usuario autenticado
+  async obtenerSucursal(req, res) {
+    try {
+      const sucursal = await usuarioService.obtenerSucursalUsuario(req.usuario.id_usuario);
+
+      res.json({
+        success: true,
+        data: { sucursal }
+      });
+
+    } catch (error) {
+      const statusCode = error.message.includes('no encontrado') || 
+                        error.message.includes('no tiene') ? 404 : 500;
+      
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // Actualizar imagen de la sucursal del usuario autenticado
+  async actualizarImagenSucursal(req, res) {
+    try {
+      // Verificar que se haya subido un archivo
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se proporcionó ninguna imagen'
+        });
+      }
+
+      const imagenPath = `/uploads/sucursales/${req.file.filename}`;
+      const sucursal = await usuarioService.actualizarImagenSucursal(
+        req.usuario.id_usuario,
+        imagenPath
+      );
+
+      res.json({
+        success: true,
+        message: 'Imagen de sucursal actualizada exitosamente',
+        data: { sucursal }
+      });
+
+    } catch (error) {
+      // Si hay error, eliminar el archivo subido
+      if (req.file) {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(__dirname, '../../uploads/sucursales', req.file.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+
+      const statusCode = error.message.includes('no encontrado') || 
+                        error.message.includes('no tiene') ? 404 : 500;
+      
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
 }
 
 module.exports = new UsuarioController();

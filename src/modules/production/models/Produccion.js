@@ -34,6 +34,12 @@ const Produccion = sequelize.define('Produccion', {
         msg: 'El cliente es requerido'
       }
     }
+  },
+  fecha: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'fecha',
+    defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'produccion',

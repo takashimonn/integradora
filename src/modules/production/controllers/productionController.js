@@ -7,23 +7,47 @@ class ProductionController {
    */
   async obtenerTodos(req, res) {
     try {
-      const { activo, fecha, fechaDesde, fechaHasta } = req.query;
+      const { activo, fecha, fechaDesde, fechaHasta, todas } = req.query;
       const filtros = {};
 
       if (activo !== undefined) {
         filtros.activo = activo === 'true';
       }
 
-      if (fecha) {
-        filtros.fecha = fecha;
-      }
+      // Si se especifica 'todas=true', mostrar todas las producciones
+      // Si no, por defecto mostrar solo las del día de hoy
+      if (todas !== 'true') {
+        // Si no se especifica una fecha, usar la fecha de hoy
+        if (!fecha && !fechaDesde && !fechaHasta) {
+          const fechaHoy = new Date().toISOString().split('T')[0];
+          filtros.fecha = fechaHoy;
+        } else {
+          // Si se especifica una fecha, usar esa
+          if (fecha) {
+            filtros.fecha = fecha;
+          }
 
-      if (fechaDesde) {
-        filtros.fechaDesde = fechaDesde;
-      }
+          if (fechaDesde) {
+            filtros.fechaDesde = fechaDesde;
+          }
 
-      if (fechaHasta) {
-        filtros.fechaHasta = fechaHasta;
+          if (fechaHasta) {
+            filtros.fechaHasta = fechaHasta;
+          }
+        }
+      } else {
+        // Si todas=true, aplicar filtros de fecha si se especifican
+        if (fecha) {
+          filtros.fecha = fecha;
+        }
+
+        if (fechaDesde) {
+          filtros.fechaDesde = fechaDesde;
+        }
+
+        if (fechaHasta) {
+          filtros.fechaHasta = fechaHasta;
+        }
       }
 
       const registros = await productionService.obtenerTodos(filtros);
