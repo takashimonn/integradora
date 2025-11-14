@@ -24,10 +24,9 @@ const sequelize = new Sequelize(
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log(' Conexión a MySQL con Sequelize exitosa');
     return true;
   } catch (error) {
-    console.error(' Error al conectar con Sequelize:', error.message);
+    console.error('❌ Error al conectar con la base de datos:', error.message);
     return false;
   }
 }
@@ -36,9 +35,9 @@ async function testConnection() {
 async function syncDatabase(force = false) {
   try {
     await sequelize.sync({ force });
-    console.log(' Base de datos sincronizada');
+    // Log silencioso - solo mostrar si hay error
   } catch (error) {
-    console.error(' Error al sincronizar base de datos:', error.message);
+    console.error('❌ Error al sincronizar base de datos:', error.message);
   }
 }
 

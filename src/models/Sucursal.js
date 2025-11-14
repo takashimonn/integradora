@@ -8,6 +8,11 @@ const Sucursal = sequelize.define('Sucursal', {
     autoIncrement: true,
     field: 'id_sucursal'
   },
+  nombre: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Nombre identificador de la sucursal (ej: "Pollo Frito", "Pollo a Granel")'
+  },
   gerente: {
     type: DataTypes.STRING(100),
     allowNull: false,

@@ -6,6 +6,7 @@ const Pedido = sequelize.define('Pedido', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
+    allowNull: false,
     field: 'id_pedido'
   },
   total: {

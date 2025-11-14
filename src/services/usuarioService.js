@@ -90,7 +90,7 @@ class UsuarioService {
       include: [{
         model: Sucursal,
         as: 'sucursal',
-        attributes: ['id_sucursal', 'gerente', 'ubicacion', 'imagen']
+        attributes: ['id_sucursal', 'nombre', 'gerente', 'ubicacion', 'imagen']
       }]
     });
 

@@ -88,6 +88,16 @@ app.use('/api/orders', orderRoutes);
 // Rutas de clientes
 app.use('/api/clients', clientRoutes);
 
+// Rutas de WhatsApp/IA
+const whatsappRoutes = require('./modules/whatsapp-ai/routes/whatsappRoutes');
+// Middleware para ngrok-free: agregar header que evita la página de advertencia
+app.use('/api/whatsapp/webhook', (req, res, next) => {
+  // Agregar header para que ngrok no muestre la página de advertencia
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  next();
+});
+app.use('/api/whatsapp', whatsappRoutes);
+
 // Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
   try {
@@ -127,53 +137,7 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor
 app.listen(PORT, async () => {
-  console.log(`\n🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📝 Endpoints disponibles:`);
-  console.log(`\n🔐 Autenticación:`);
-  console.log(`   POST /api/auth/registro - Registrar nuevo usuario`);
-  console.log(`   POST /api/auth/login - Iniciar sesión`);
-  console.log(`   GET  /api/auth/perfil - Obtener perfil (requiere token)`);
-  console.log(`   PUT  /api/auth/perfil - Actualizar perfil (requiere token)`);
-  console.log(`\n📦 Productos:`);
-  console.log(`   GET    /api/products - Obtener todos los productos`);
-  console.log(`   GET    /api/products/:id - Obtener producto por ID`);
-  console.log(`   POST   /api/products - Crear producto (con foto opcional)`);
-  console.log(`   PUT    /api/products/:id - Actualizar producto (con foto opcional)`);
-  console.log(`   DELETE /api/products/:id - Eliminar producto`);
-  console.log(`\n🏭 Producción:`);
-  console.log(`   GET    /api/production - Obtener todos los registros`);
-  console.log(`   GET    /api/production/:id - Obtener registro por ID`);
-  console.log(`   GET    /api/production/fecha/:fecha - Obtener registro por fecha`);
-  console.log(`   GET    /api/production/estadisticas - Obtener estadísticas`);
-  console.log(`   POST   /api/production - Crear registro de producción del día`);
-  console.log(`   PUT    /api/production/:id - Actualizar registro`);
-  console.log(`   DELETE /api/production/:id - Eliminar registro`);
-  console.log(`\n🚚 Repartos:`);
-  console.log(`   GET    /api/deliveries - Obtener todos los repartos`);
-  console.log(`   GET    /api/deliveries/:id - Obtener reparto por ID`);
-  console.log(`   GET    /api/deliveries/destino/:destino - Obtener repartos por destino`);
-  console.log(`   GET    /api/deliveries/estadisticas - Obtener estadísticas`);
-  console.log(`   POST   /api/deliveries - Crear nuevo reparto`);
-  console.log(`   PUT    /api/deliveries/:id - Actualizar reparto`);
-  console.log(`   DELETE /api/deliveries/:id - Eliminar reparto`);
-  console.log(`\n📋 Pedidos:`);
-  console.log(`   GET    /api/orders - Obtener todos los pedidos`);
-  console.log(`   GET    /api/orders/:id - Obtener pedido por ID`);
-  console.log(`   GET    /api/orders/numero/:numeroPedido - Obtener pedido por número`);
-  console.log(`   GET    /api/orders/pendientes-notificacion - Pedidos sin notificar`);
-  console.log(`   GET    /api/orders/estadisticas - Obtener estadísticas`);
-  console.log(`   POST   /api/orders - Crear nuevo pedido (envía notificación automática)`);
-  console.log(`   POST   /api/orders/webhook/whatsapp - Webhook para WhatsApp`);
-  console.log(`   POST   /api/orders/:id/reenviar-notificacion - Reenviar notificación`);
-  console.log(`   PUT    /api/orders/:id - Actualizar pedido`);
-  console.log(`   PUT    /api/orders/:id/estado - Actualizar estado del pedido`);
-  console.log(`   DELETE /api/orders/:id - Eliminar pedido`);
-  console.log(`\n👥 Clientes:`);
-  console.log(`   GET    /api/clients - Obtener todos los clientes`);
-  console.log(`   GET    /api/clients/:id - Obtener cliente por ID`);
-  console.log(`   POST   /api/clients - Crear nuevo cliente`);
-  console.log(`   PUT    /api/clients/:id - Actualizar cliente`);
-  console.log(`   DELETE /api/clients/:id - Eliminar cliente\n`);
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}\n`);
   
   // Probar conexión y sincronizar modelos
   const connected = await testConnection();
