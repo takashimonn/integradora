@@ -21,6 +21,12 @@ const Reporte = sequelize.define('Reporte', {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
     field: 'total_ventas'
+  },
+  fecha: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'fecha',
+    comment: 'Fecha del reporte diario de ventas'
   }
 }, {
   tableName: 'reportes',

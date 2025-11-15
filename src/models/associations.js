@@ -11,6 +11,7 @@ const Producto = require('../modules/products/models/Producto');
 const Pedido = require('../modules/orders/models/Pedido');
 const PedidoProducto = require('./PedidoProducto');
 const Reporte = require('./Reporte');
+const Sincronizacion = require('../modules/sales-integration/models/Sincronizacion');
 
 // Relaciones de Cliente
 Cliente.hasMany(Ubicacion, {
@@ -48,6 +49,11 @@ Sucursal.hasMany(Pedido, {
 Sucursal.hasMany(Reporte, {
   foreignKey: 'id_sucursal',
   as: 'reportes'
+});
+
+Sucursal.hasOne(Sincronizacion, {
+  foreignKey: 'id_sucursal',
+  as: 'sincronizacion'
 });
 
 // Relaciones de Usuario
@@ -115,6 +121,12 @@ Reporte.belongsTo(Sucursal, {
   as: 'sucursal'
 });
 
+// Relaciones de Sincronizacion
+Sincronizacion.belongsTo(Sucursal, {
+  foreignKey: 'id_sucursal',
+  as: 'sucursal'
+});
+
 module.exports = {
   Cliente,
   Ubicacion,
@@ -124,6 +136,7 @@ module.exports = {
   Producto,
   Pedido,
   PedidoProducto,
-  Reporte
+  Reporte,
+  Sincronizacion
 };
 

@@ -34,7 +34,8 @@ async function testConnection() {
 // Sincronizar modelos con la base de datos (solo en desarrollo)
 async function syncDatabase(force = false) {
   try {
-    await sequelize.sync({ force });
+    // Usar alter: true para agregar columnas nuevas sin borrar datos
+    await sequelize.sync({ force, alter: !force });
     // Log silencioso - solo mostrar si hay error
   } catch (error) {
     console.error('❌ Error al sincronizar base de datos:', error.message);

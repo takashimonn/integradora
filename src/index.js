@@ -8,6 +8,7 @@ const productionRoutes = require('./modules/production/routes/productionRoutes')
 const deliveryRoutes = require('./modules/deliveries/routes/deliveryRoutes');
 const orderRoutes = require('./modules/orders/routes/orderRoutes');
 const clientRoutes = require('./modules/clients/routes/clientRoutes');
+const salesIntegrationRoutes = require('./modules/sales-integration/routes/salesIntegrationRoutes');
 
 // Importar modelos para que Sequelize los registre
 require('./models/Cliente');
@@ -20,6 +21,7 @@ require('./modules/products/models/Producto');
 require('./modules/production/models/Produccion');
 require('./modules/deliveries/models/Reparto');
 require('./modules/orders/models/Pedido');
+require('./modules/sales-integration/models/Sincronizacion');
 
 // Configurar relaciones entre modelos
 require('./models/associations');
@@ -65,7 +67,9 @@ app.get('/', (req, res) => {
       orders: '/api/orders',
       pedidos: 'GET, POST, PUT, DELETE /api/orders',
       clients: '/api/clients',
-      clientes: 'GET, POST, PUT, DELETE /api/clients'
+      clientes: 'GET, POST, PUT, DELETE /api/clients',
+      salesIntegration: '/api/sales-integration',
+      integracionVentas: 'POST /api/sales-integration/upload (subir Excel de eleventa)'
     }
   });
 });
@@ -87,6 +91,9 @@ app.use('/api/orders', orderRoutes);
 
 // Rutas de clientes
 app.use('/api/clients', clientRoutes);
+
+// Rutas de integración de ventas (eleventa)
+app.use('/api/sales-integration', salesIntegrationRoutes);
 
 // Rutas de WhatsApp/IA
 const whatsappRoutes = require('./modules/whatsapp-ai/routes/whatsappRoutes');
