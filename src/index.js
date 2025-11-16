@@ -142,15 +142,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Iniciar servidor
-app.listen(PORT, async () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}\n`);
-  
-  // Probar conexión y sincronizar modelos
-  const connected = await testConnection();
-  if (connected) {
-    // Sincronizar modelos (crear tablas si no existen)
-    // force: false = no borra tablas existentes
-    await syncDatabase(false);
-  }
-});
+// Iniciar servidor solo si no está en Vercel
+if (!process.env.VERCEL) {
+  app.listen(PORT, async () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}\n`);
+    
+    // Probar conexión y sincronizar modelos
+    const connected = await testConnection();
+    if (connected) {
+      // Sincronizar modelos (crear tablas si no existen)
+      // force: false = no borra tablas existentes
+      await syncDatabase(false);
+    }
+  });
+}
+
+// Exportar app para Vercel
+module.exports = app;
