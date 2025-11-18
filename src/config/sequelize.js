@@ -53,12 +53,18 @@ if (process.env.DATABASE_URL) {
   };
 }
 
+// Validar que las variables de entorno estén configuradas
+if (!process.env.DATABASE_URL && (!process.env.DB_NAME || !process.env.DB_USER || !process.env.DB_PASSWORD)) {
+  console.warn('⚠️  Advertencia: Variables de entorno de base de datos no configuradas');
+  console.warn('   Se requiere DATABASE_URL o (DB_NAME, DB_USER, DB_PASSWORD)');
+}
+
 const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, sequelizeConfig)
   : new Sequelize(
-      process.env.DB_NAME,
-      process.env.DB_USER,
-      process.env.DB_PASSWORD,
+      process.env.DB_NAME || 'integradora_db',
+      process.env.DB_USER || 'root',
+      process.env.DB_PASSWORD || '',
       sequelizeConfig
     );
 
