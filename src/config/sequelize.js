@@ -12,6 +12,7 @@ let sequelizeConfig;
 if (process.env.DATABASE_URL) {
   sequelizeConfig = {
     dialect: 'mysql',
+    dialectModule: require('mysql2'), // 🔥 FIX PARA VERCEL
     logging: false,
     dialectOptions: {
       ssl: process.env.DB_SSL === 'true'
@@ -34,6 +35,7 @@ if (process.env.DATABASE_URL) {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,
     dialect: 'mysql',
+    dialectModule: require('mysql2'), // 🔥 FIX PARA VERCEL
     logging: false,
     protocol: 'tcp',
     dialectOptions: {
