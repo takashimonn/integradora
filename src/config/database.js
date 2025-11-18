@@ -1,5 +1,8 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+// Solo cargar dotenv en desarrollo local (no en Vercel)
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 // Configuración de la base de datos
 const dbConfig = {

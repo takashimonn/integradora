@@ -1,6 +1,9 @@
 const express = require('express');
 const path = require('path');
-require('dotenv').config();
+// Solo cargar dotenv en desarrollo local (no en Vercel)
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const { testConnection, syncDatabase } = require('./config/sequelize');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./modules/products/routes/productRoutes');
