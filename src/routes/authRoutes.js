@@ -51,6 +51,88 @@ const upload = multer({
 router.post('/registro', usuarioController.registrar.bind(usuarioController));
 router.post('/login', usuarioController.login.bind(usuarioController));
 
+// Ruta temporal de utilidad: verificar si existe un usuario (solo para debugging)
+router.get('/check-user/:email', async (req, res) => {
+  try {
+    const Usuario = require('../models/Usuario');
+    const usuario = await Usuario.findOne({
+      where: { email: req.params.email },
+      attributes: ['id_usuario', 'nombre', 'email', 'activo', 'id_sucursal']
+    });
+    
+    if (usuario) {
+      res.json({
+        success: true,
+        exists: true,
+        usuario: usuario.toJSON()
+      });
+    } else {
+      res.json({
+        success: true,
+        exists: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Ruta temporal: resetear contraseña de un usuario (solo para desarrollo/debugging)
+// ⚠️ ELIMINAR ESTE ENDPOINT EN PRODUCCIÓN o protegerlo con autenticación
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email y nueva contraseña son requeridos'
+      });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 6 caracteres'
+      });
+    }
+    
+    const Usuario = require('../models/Usuario');
+    const usuario = await Usuario.findOne({ where: { email } });
+    
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    
+    // Actualizar contraseña (el hook beforeUpdate la hasheará automáticamente)
+    usuario.password = newPassword;
+    await usuario.save();
+    
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada exitosamente',
+      usuario: {
+        id_usuario: usuario.id_usuario,
+        nombre: usuario.nombre,
+        email: usuario.email
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // Rutas protegidas (requieren autenticación)
 router.get('/perfil', authenticate, usuarioController.obtenerPerfil.bind(usuarioController));
 router.put('/perfil', authenticate, usuarioController.actualizarPerfil.bind(usuarioController));
