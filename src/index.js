@@ -139,26 +139,50 @@ app.get('/api/diagnostico', async (req, res) => {
       advertencias: []
     };
 
-    // 1. Probar conexión
+    // 1. Probar conexión y obtener información detallada
     try {
       await sequelize.authenticate();
       diagnostico.conexion = true;
       diagnostico.database = sequelize.config.database;
       diagnostico.host = sequelize.config.host;
+      diagnostico.port = sequelize.config.port;
+      diagnostico.username = sequelize.config.username;
+      
+      // Verificar qué base de datos está usando realmente
+      const [dbInfo] = await sequelize.query(`SELECT DATABASE() as current_db`);
+      diagnostico.currentDatabase = dbInfo[0]?.current_db || null;
+      
+      // Listar todas las bases de datos disponibles
+      const [databases] = await sequelize.query(`SHOW DATABASES`);
+      diagnostico.availableDatabases = databases.map(db => Object.values(db)[0]);
+      
     } catch (error) {
       diagnostico.errores.push(`Error de conexión: ${error.message}`);
       return res.status(500).json({ success: false, diagnostico });
     }
 
-    // 2. Listar todas las tablas
+    // 2. Listar todas las tablas (con información de schema)
     try {
+      // Método 1: Usando DATABASE()
       const [tablas] = await sequelize.query(`
-        SELECT TABLE_NAME 
+        SELECT TABLE_NAME, TABLE_SCHEMA
         FROM INFORMATION_SCHEMA.TABLES 
         WHERE TABLE_SCHEMA = DATABASE()
         ORDER BY TABLE_NAME
       `);
       diagnostico.tablas = tablas.map(t => t.TABLE_NAME);
+      diagnostico.tablasConSchema = tablas;
+      
+      // Método 2: Listar tablas directamente
+      const [tablasDirectas] = await sequelize.query(`SHOW TABLES`);
+      diagnostico.tablasDirectas = tablasDirectas.map(t => Object.values(t)[0]);
+      
+      // Verificar si hay diferencias
+      if (diagnostico.tablas.length !== diagnostico.tablasDirectas.length) {
+        diagnostico.advertencias.push(
+          `Diferencia entre tablas: INFORMATION_SCHEMA muestra ${diagnostico.tablas.length}, SHOW TABLES muestra ${diagnostico.tablasDirectas.length}`
+        );
+      }
     } catch (error) {
       diagnostico.errores.push(`Error al listar tablas: ${error.message}`);
     }
@@ -166,34 +190,53 @@ app.get('/api/diagnostico', async (req, res) => {
     // 3. Verificar tablas principales y contar registros (múltiples métodos)
     const tablasPrincipales = ['usuarios', 'clientes', 'productos', 'pedidos', 'sucursales'];
     
+    // Usar la base de datos actual explícitamente
+    const currentDb = diagnostico.currentDatabase || diagnostico.database;
+    
     for (const tabla of tablasPrincipales) {
       try {
-        // Método 1: COUNT con SQL directo
-        const [resultadoSQL] = await sequelize.query(`SELECT COUNT(*) as total FROM \`${tabla}\``);
+        // Método 1: COUNT con SQL directo usando base de datos explícita
+        const [resultadoSQL] = await sequelize.query(
+          `SELECT COUNT(*) as total FROM \`${currentDb}\`.\`${tabla}\``
+        );
         const totalSQL = resultadoSQL[0]?.total || 0;
         
         // Método 2: Verificar con SELECT directo (más confiable)
-        const [registros] = await sequelize.query(`SELECT * FROM \`${tabla}\` LIMIT 1`);
+        const [registros] = await sequelize.query(
+          `SELECT * FROM \`${currentDb}\`.\`${tabla}\` LIMIT 5`
+        );
         const tieneRegistros = registros.length > 0;
         
-        // Método 3: COUNT con información del resultado
+        // Método 3: COUNT sin especificar schema (usando DATABASE())
         const [resultadoDetallado] = await sequelize.query(`
           SELECT COUNT(*) as total 
           FROM \`${tabla}\`
         `);
         
+        // Método 4: Verificar en INFORMATION_SCHEMA
+        const [infoSchema] = await sequelize.query(`
+          SELECT TABLE_ROWS 
+          FROM INFORMATION_SCHEMA.TABLES 
+          WHERE TABLE_SCHEMA = '${currentDb}' 
+          AND TABLE_NAME = '${tabla}'
+        `);
+        
         diagnostico.datos[tabla] = {
-          existe: diagnostico.tablas.includes(tabla),
+          existe: diagnostico.tablas.includes(tabla) || diagnostico.tablasDirectas?.includes(tabla),
           total: Number(totalSQL), // Asegurar que sea número
           totalDetallado: Number(resultadoDetallado[0]?.total || 0),
+          totalInfoSchema: infoSchema[0] ? Number(infoSchema[0].TABLE_ROWS) : null,
           tieneRegistros: tieneRegistros,
           muestraRegistro: registros[0] || null, // Primer registro como muestra
-          rawCount: resultadoSQL[0] // Resultado crudo para debugging
+          totalRegistrosEncontrados: registros.length,
+          rawCount: resultadoSQL[0], // Resultado crudo para debugging
+          database: currentDb
         };
       } catch (error) {
         diagnostico.datos[tabla] = {
-          existe: diagnostico.tablas.includes(tabla),
+          existe: diagnostico.tablas.includes(tabla) || diagnostico.tablasDirectas?.includes(tabla),
           error: error.message,
+          database: currentDb,
           stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         };
         diagnostico.advertencias.push(`Tabla ${tabla}: ${error.message}`);
@@ -204,18 +247,20 @@ app.get('/api/diagnostico', async (req, res) => {
     const tablasDetalladas = ['usuarios', 'productos', 'clientes', 'sucursales'];
     
     for (const tabla of tablasDetalladas) {
-      if (diagnostico.tablas.includes(tabla)) {
+      if (diagnostico.tablas.includes(tabla) || diagnostico.tablasDirectas?.includes(tabla)) {
         try {
-          // Estructura de columnas
+          // Estructura de columnas usando base de datos explícita
           const [columnas] = await sequelize.query(`
             SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${tabla}'
+            WHERE TABLE_SCHEMA = '${currentDb}' AND TABLE_NAME = '${tabla}'
             ORDER BY ORDINAL_POSITION
           `);
           
-          // Obtener algunos registros de ejemplo
-          const [ejemplos] = await sequelize.query(`SELECT * FROM \`${tabla}\` LIMIT 3`);
+          // Obtener algunos registros de ejemplo usando base de datos explícita
+          const [ejemplos] = await sequelize.query(
+            `SELECT * FROM \`${currentDb}\`.\`${tabla}\` LIMIT 5`
+          );
           
           if (!diagnostico.datos[tabla]) {
             diagnostico.datos[tabla] = {};
@@ -224,11 +269,13 @@ app.get('/api/diagnostico', async (req, res) => {
           diagnostico.datos[tabla].columnas = columnas;
           diagnostico.datos[tabla].ejemplos = ejemplos;
           diagnostico.datos[tabla].totalEjemplos = ejemplos.length;
+          diagnostico.datos[tabla].database = currentDb;
         } catch (error) {
           if (!diagnostico.datos[tabla]) {
             diagnostico.datos[tabla] = {};
           }
           diagnostico.datos[tabla].errorEstructura = error.message;
+          diagnostico.datos[tabla].database = currentDb;
           diagnostico.advertencias.push(`Error al verificar estructura de ${tabla}: ${error.message}`);
         }
       }
