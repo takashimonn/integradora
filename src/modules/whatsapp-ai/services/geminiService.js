@@ -1,211 +1,1 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-class GeminiService {
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY no está configurada en las variables de entorno');
-    }
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    // Usar gemini-2.5-flash que es rápido y eficiente, o gemini-flash-latest para siempre la última versión
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  }
-
-  /**
-   * Procesar mensaje de WhatsApp y extraer información del pedido
-   * @param {string} mensaje - Mensaje del cliente
-   * @param {string} telefono - Número de teléfono del cliente
-   * @param {Array} productosDisponibles - Lista de productos disponibles en la BD
-   * @returns {Promise<Object>} - Información estructurada del pedido
-   */
-  async procesarMensajePedido(mensaje, telefono, productosDisponibles = []) {
-    try {
-      // Crear prompt del sistema
-      const prompt = this.crearPrompt(mensaje, telefono, productosDisponibles);
-
-      // Generar respuesta con Gemini
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const texto = response.text();
-
-      // Parsear JSON de la respuesta
-      const jsonMatch = texto.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('La IA no devolvió un JSON válido');
-      }
-
-      const datosPedido = JSON.parse(jsonMatch[0]);
-
-      // Validar estructura básica
-      this.validarDatosPedido(datosPedido);
-
-      return datosPedido;
-    } catch (error) {
-      console.error('Error al procesar mensaje con Gemini:', error);
-      throw new Error(`Error al procesar el mensaje: ${error.message}`);
-    }
-  }
-
-  /**
-   * Crear prompt para Gemini
-   */
-  crearPrompt(mensaje, telefono, productosDisponibles) {
-    const listaProductos = productosDisponibles
-      .map(p => `- ${p.descripcion || p.nombre} (ID: ${p.id_producto}, Precio: $${p.precio})`)
-      .join('\n');
-
-    return `Eres un asistente experto que procesa pedidos de pollo por WhatsApp. Tu trabajo es identificar pedidos y extraer toda la información posible.
-
-Mensaje del cliente (teléfono: ${telefono}):
-"${mensaje}"
-
-Productos disponibles:
-${listaProductos || 'No hay productos disponibles'}
-
-CONTEXTO:
-- Estás procesando mensajes de WhatsApp de clientes que quieren hacer pedidos
-- Los clientes pueden mencionar productos de diferentes formas: "quiero", "necesito", "dame", "me das", "quiero pedir", etc.
-- Los productos pueden ser: pollo frito, pollo entero, alitas, mollejas, muslos, piernas, pechugas, pollo a granel, etc.
-- Las cantidades pueden venir en diferentes formatos: "2 kilos", "2kg", "dos", "2", "un kilo", etc.
-
-INSTRUCCIONES DETALLADAS:
-1. IDENTIFICA SI ES UN PEDIDO:
-   - Si el mensaje menciona productos de pollo (frito, alitas, mollejas, muslos, etc.) → ES UN PEDIDO
-   - Si menciona cantidades (kilos, piezas, unidades) → ES UN PEDIDO
-   - Si dice "quiero", "necesito", "dame", "me das", "pedir" → ES UN PEDIDO
-   - Ejemplos de pedidos válidos: "Quiero 2 kilos de mollejas", "Dame 3 pollos fritos", "Necesito alitas"
-
-2. EXTRAE PRODUCTOS:
-   - Identifica TODOS los productos mencionados en el mensaje
-   - Si menciona "mollejas", "alitas", "pollo frito", "pollo entero", etc. → son productos válidos
-   - Si el producto no está en la lista, usa el nombre EXACTO que mencionó el cliente
-
-3. EXTRAE CANTIDADES:
-   - "2 kilos" = cantidad 2, nombre "kilos de [producto]"
-   - "3 pollos" = cantidad 3
-   - "un kilo" = cantidad 1
-   - Si no menciona cantidad, asume cantidad 1
-
-4. CALCULA EL TOTAL:
-   - Si el producto está en la lista, usa su precio
-   - Si no está, usa precio 0 (se calculará después)
-   - Total = suma de (precio * cantidad) de todos los productos
-
-5. EXTRAE INFORMACIÓN ADICIONAL:
-   - Dirección: si menciona "dirección", "direccion", "calle", "colonia", "casa", etc.
-   - Método de pago: "efectivo", "tarjeta", "transferencia", "pago en", etc.
-   - Notas especiales: "sin cebolla", "extra picante", "bien cocido", etc.
-
-6. IDENTIFICA TIPO DE PRODUCTO (para asignar sucursal):
-   - "Pollo frito", "pollo frito entero", "pollo frito por piezas" → tipo: pollo frito
-   - "Alitas", "alita", "pollo a granel", "pollo normal", "muslo", "pierna", "pechuga", "mollejas" → tipo: pollo a granel
-
-IMPORTANTE:
-- SIEMPRE identifica al menos UN producto del mensaje
-- Si el mensaje es un saludo o no es un pedido, lanza un error
-- Si es un pedido válido pero falta información, procésalo igual (la información faltante se pedirá después)
-- Usa el nombre EXACTO del producto que mencionó el cliente
-
-Responde SOLO con un JSON válido en este formato exacto:
-{
-  "productos": [
-    {
-      "nombre": "nombre del producto mencionado",
-      "cantidad": 1,
-      "id_producto": null o el ID si lo identificaste en la lista
-    }
-  ],
-  "total": 0.00,
-  "direccion": "dirección si se menciona, o null",
-  "metodo_pago": "efectivo/tarjeta/transferencia o null",
-  "notas": "notas especiales o null",
-  "confianza": 0.8
-}
-
-El campo "confianza" debe ser un número entre 0 y 1 indicando qué tan seguro estás de haber entendido correctamente el pedido.`;
-  }
-
-  /**
-   * Extraer datos del cliente (nombre, dirección) de un mensaje
-   * @param {string} mensaje - Mensaje del cliente
-   * @returns {Promise<Object>} - Datos extraídos (nombre, dirección)
-   */
-  async extraerDatosCliente(mensaje) {
-    try {
-      const prompt = `Eres un asistente experto que extrae información personal de mensajes de WhatsApp.
-
-Mensaje del cliente:
-"${mensaje}"
-
-INSTRUCCIONES DETALLADAS:
-1. EXTRAE EL NOMBRE:
-   - Busca frases como: "mi nombre es", "me llamo", "soy", "nombre", "me dicen"
-   - Ejemplos: "Mi nombre es Juan Pérez" → nombre: "Juan Pérez"
-   - "Soy María González" → nombre: "María González"
-   - "Me llamo Carlos" → nombre: "Carlos"
-   - Si NO encuentras un nombre explícito, deja como null
-
-2. EXTRAE LA DIRECCIÓN:
-   - Busca palabras clave: "dirección", "direccion", "calle", "avenida", "colonia", "casa", "domicilio", "vivo en", "estoy en"
-   - Ejemplos: "dirección: Calle Principal 123" → direccion: "Calle Principal 123"
-   - "Vivo en Av. Reforma 456, Col. Centro" → direccion: "Av. Reforma 456, Col. Centro"
-   - "Mi casa está en Calle 5 de Mayo" → direccion: "Calle 5 de Mayo"
-   - Si NO encuentras una dirección explícita, deja como null
-
-3. REGLAS IMPORTANTES:
-   - Solo extrae información EXPLÍCITA (que se mencione claramente)
-   - NO inventes nombres o direcciones
-   - Si el mensaje solo tiene el pedido sin datos personales, ambos campos deben ser null
-   - Ejemplo: "Quiero 2 kilos de mollejas" → nombre: null, direccion: null
-
-Responde SOLO con un JSON válido en este formato exacto:
-{
-  "nombre": "nombre completo si se menciona explícitamente, o null",
-  "direccion": "dirección completa si se menciona explícitamente, o null"
-}`;
-
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const texto = response.text();
-
-      // Parsear JSON de la respuesta
-      const jsonMatch = texto.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return { nombre: null, direccion: null };
-      }
-
-      const datos = JSON.parse(jsonMatch[0]);
-      return {
-        nombre: datos.nombre || null,
-        direccion: datos.direccion || null
-      };
-    } catch (error) {
-      console.error('Error al extraer datos del cliente:', error);
-      return { nombre: null, direccion: null };
-    }
-  }
-
-  /**
-   * Validar estructura de datos del pedido
-   */
-  validarDatosPedido(datos) {
-    if (!datos.productos || !Array.isArray(datos.productos)) {
-      throw new Error('Los datos del pedido deben incluir un array de productos');
-    }
-
-    if (datos.productos.length === 0) {
-      throw new Error('El pedido debe tener al menos un producto');
-    }
-
-    if (datos.total === undefined || datos.total === null) {
-      throw new Error('El total es requerido');
-    }
-
-    if (datos.total < 0) {
-      throw new Error('El total no puede ser negativo');
-    }
-  }
-}
-
-module.exports = new GeminiService();
-
+const { GoogleGenerativeAI } = require('@google/generative-ai');class GeminiService {  constructor() {    const apiKey = process.env.GEMINI_API_KEY;    if (!apiKey) {      throw new Error('GEMINI_API_KEY no está configurada en las variables de entorno');    }    this.genAI = new GoogleGenerativeAI(apiKey);    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });  }  async procesarMensajePedido(mensaje, telefono, productosDisponibles = []) {    try {      const prompt = this.crearPrompt(mensaje, telefono, productosDisponibles);      const result = await this.model.generateContent(prompt);      const response = await result.response;      const texto = response.text();      const jsonMatch = texto.match(/\{[\s\S]*\}/);      if (!jsonMatch) {        throw new Error('La IA no devolvió un JSON válido');      }      const datosPedido = JSON.parse(jsonMatch[0]);      this.validarDatosPedido(datosPedido);      return datosPedido;    } catch (error) {      console.error('Error al procesar mensaje con Gemini:', error);      throw new Error(`Error al procesar el mensaje: ${error.message}`);    }  }  crearPrompt(mensaje, telefono, productosDisponibles) {    const listaProductos = productosDisponibles      .map(p => `- ${p.descripcion || p.nombre} (ID: ${p.id_producto}, Precio: $${p.precio})`)      .join('\n');    return `Eres un asistente experto que procesa pedidos de pollo por WhatsApp. Tu trabajo es identificar pedidos y extraer toda la información posible.Mensaje del cliente (teléfono: ${telefono}):"${mensaje}"Productos disponibles:${listaProductos || 'No hay productos disponibles'}CONTEXTO:- Estás procesando mensajes de WhatsApp de clientes que quieren hacer pedidos- Los clientes pueden mencionar productos de diferentes formas: "quiero", "necesito", "dame", "me das", "quiero pedir", etc.- Los productos pueden ser: pollo frito, pollo entero, alitas, mollejas, muslos, piernas, pechugas, pollo a granel, etc.- Las cantidades pueden venir en diferentes formatos: "2 kilos", "2kg", "dos", "2", "un kilo", etc.INSTRUCCIONES DETALLADAS:1. IDENTIFICA SI ES UN PEDIDO:   - Si el mensaje menciona productos de pollo (frito, alitas, mollejas, muslos, etc.) → ES UN PEDIDO   - Si menciona cantidades (kilos, piezas, unidades) → ES UN PEDIDO   - Si dice "quiero", "necesito", "dame", "me das", "pedir" → ES UN PEDIDO   - Ejemplos de pedidos válidos: "Quiero 2 kilos de mollejas", "Dame 3 pollos fritos", "Necesito alitas"2. EXTRAE PRODUCTOS:   - Identifica TODOS los productos mencionados en el mensaje   - Si menciona "mollejas", "alitas", "pollo frito", "pollo entero", etc. → son productos válidos   - Si el producto no está en la lista, usa el nombre EXACTO que mencionó el cliente3. EXTRAE CANTIDADES:   - "2 kilos" = cantidad 2, nombre "kilos de [producto]"   - "3 pollos" = cantidad 3   - "un kilo" = cantidad 1   - Si no menciona cantidad, asume cantidad 14. CALCULA EL TOTAL:   - Si el producto está en la lista, usa su precio   - Si no está, usa precio 0 (se calculará después)   - Total = suma de (precio * cantidad) de todos los productos5. EXTRAE INFORMACIÓN ADICIONAL:   - Dirección: si menciona "dirección", "direccion", "calle", "colonia", "casa", etc.   - Método de pago: "efectivo", "tarjeta", "transferencia", "pago en", etc.   - Notas especiales: "sin cebolla", "extra picante", "bien cocido", etc.6. IDENTIFICA TIPO DE PRODUCTO (para asignar sucursal):   - "Pollo frito", "pollo frito entero", "pollo frito por piezas" → tipo: pollo frito   - "Alitas", "alita", "pollo a granel", "pollo normal", "muslo", "pierna", "pechuga", "mollejas" → tipo: pollo a granelIMPORTANTE:- SIEMPRE identifica al menos UN producto del mensaje- Si el mensaje es un saludo o no es un pedido, lanza un error- Si es un pedido válido pero falta información, procésalo igual (la información faltante se pedirá después)- Usa el nombre EXACTO del producto que mencionó el clienteResponde SOLO con un JSON válido en este formato exacto:{  "productos": [    {      "nombre": "nombre del producto mencionado",      "cantidad": 1,      "id_producto": null o el ID si lo identificaste en la lista    }  ],  "total": 0.00,  "direccion": "dirección si se menciona, o null",  "metodo_pago": "efectivo/tarjeta/transferencia o null",  "notas": "notas especiales o null",  "confianza": 0.8}El campo "confianza" debe ser un número entre 0 y 1 indicando qué tan seguro estás de haber entendido correctamente el pedido.`;  }  async extraerDatosCliente(mensaje) {    try {      const prompt = `Eres un asistente experto que extrae información personal de mensajes de WhatsApp.Mensaje del cliente:"${mensaje}"INSTRUCCIONES DETALLADAS:1. EXTRAE EL NOMBRE:   - Busca frases como: "mi nombre es", "me llamo", "soy", "nombre", "me dicen"   - Ejemplos: "Mi nombre es Juan Pérez" → nombre: "Juan Pérez"   - "Soy María González" → nombre: "María González"   - "Me llamo Carlos" → nombre: "Carlos"   - Si NO encuentras un nombre explícito, deja como null2. EXTRAE LA DIRECCIÓN:   - Busca palabras clave: "dirección", "direccion", "calle", "avenida", "colonia", "casa", "domicilio", "vivo en", "estoy en"   - Ejemplos: "dirección: Calle Principal 123" → direccion: "Calle Principal 123"   - "Vivo en Av. Reforma 456, Col. Centro" → direccion: "Av. Reforma 456, Col. Centro"   - "Mi casa está en Calle 5 de Mayo" → direccion: "Calle 5 de Mayo"   - Si NO encuentras una dirección explícita, deja como null3. REGLAS IMPORTANTES:   - Solo extrae información EXPLÍCITA (que se mencione claramente)   - NO inventes nombres o direcciones   - Si el mensaje solo tiene el pedido sin datos personales, ambos campos deben ser null   - Ejemplo: "Quiero 2 kilos de mollejas" → nombre: null, direccion: nullResponde SOLO con un JSON válido en este formato exacto:{  "nombre": "nombre completo si se menciona explícitamente, o null",  "direccion": "dirección completa si se menciona explícitamente, o null"}`;      const result = await this.model.generateContent(prompt);      const response = await result.response;      const texto = response.text();      const jsonMatch = texto.match(/\{[\s\S]*\}/);      if (!jsonMatch) {        return { nombre: null, direccion: null };      }      const datos = JSON.parse(jsonMatch[0]);      return {        nombre: datos.nombre || null,        direccion: datos.direccion || null      };    } catch (error) {      console.error('Error al extraer datos del cliente:', error);      return { nombre: null, direccion: null };    }  }  validarDatosPedido(datos) {    if (!datos.productos || !Array.isArray(datos.productos)) {      throw new Error('Los datos del pedido deben incluir un array de productos');    }    if (datos.productos.length === 0) {      throw new Error('El pedido debe tener al menos un producto');    }    if (datos.total === undefined || datos.total === null) {      throw new Error('El total es requerido');    }    if (datos.total < 0) {      throw new Error('El total no puede ser negativo');    }  }}module.exports = new GeminiService();

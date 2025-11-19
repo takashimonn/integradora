@@ -1,141 +1,1 @@
-const clientService = require('../services/clientService');
-
-class ClientController {
-  /**
-   * Obtener todos los clientes
-   * GET /api/clients
-   */
-  async obtenerTodos(req, res) {
-    try {
-      const { nombre, nombre_tienda, telefono } = req.query;
-      const filtros = {};
-
-      if (nombre) {
-        filtros.nombre = nombre;
-      }
-
-      if (nombre_tienda) {
-        filtros.nombre_tienda = nombre_tienda;
-      }
-
-      if (telefono) {
-        filtros.telefono = telefono;
-      }
-
-      const clientes = await clientService.obtenerTodos(filtros);
-
-      res.json({
-        success: true,
-        data: clientes,
-        count: clientes.length
-      });
-
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener clientes',
-        error: error.message
-      });
-    }
-  }
-
-  /**
-   * Obtener un cliente por ID
-   * GET /api/clients/:id
-   */
-  async obtenerPorId(req, res) {
-    try {
-      const { id } = req.params;
-      const cliente = await clientService.obtenerPorId(id);
-
-      res.json({
-        success: true,
-        data: cliente
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Crear un nuevo cliente
-   * POST /api/clients
-   */
-  async crear(req, res) {
-    try {
-      const datos = req.body;
-      const cliente = await clientService.crear(datos);
-
-      res.status(201).json({
-        success: true,
-        message: 'Cliente creado exitosamente',
-        data: cliente
-      });
-
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Actualizar un cliente
-   * PUT /api/clients/:id
-   */
-  async actualizar(req, res) {
-    try {
-      const { id } = req.params;
-      const datos = req.body;
-      const cliente = await clientService.actualizar(id, datos);
-
-      res.json({
-        success: true,
-        message: 'Cliente actualizado exitosamente',
-        data: cliente
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Eliminar un cliente
-   * DELETE /api/clients/:id
-   */
-  async eliminar(req, res) {
-    try {
-      const { id } = req.params;
-      await clientService.eliminar(id);
-
-      res.json({
-        success: true,
-        message: 'Cliente eliminado exitosamente'
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-}
-
-module.exports = new ClientController();
-
+const clientService = require('../services/clientService');class ClientController {  async obtenerTodos(req, res) {    try {      const { nombre, nombre_tienda, telefono } = req.query;      const filtros = {};      if (nombre) {        filtros.nombre = nombre;      }      if (nombre_tienda) {        filtros.nombre_tienda = nombre_tienda;      }      if (telefono) {        filtros.telefono = telefono;      }      const clientes = await clientService.obtenerTodos(filtros);      res.json({        success: true,        data: clientes,        count: clientes.length      });    } catch (error) {      res.status(500).json({        success: false,        message: 'Error al obtener clientes',        error: error.message      });    }  }  async obtenerPorId(req, res) {    try {      const { id } = req.params;      const cliente = await clientService.obtenerPorId(id);      res.json({        success: true,        data: cliente      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }  async crear(req, res) {    try {      const datos = req.body;      const cliente = await clientService.crear(datos);      res.status(201).json({        success: true,        message: 'Cliente creado exitosamente',        data: cliente      });    } catch (error) {      res.status(400).json({        success: false,        message: error.message      });    }  }  async actualizar(req, res) {    try {      const { id } = req.params;      const datos = req.body;      const cliente = await clientService.actualizar(id, datos);      res.json({        success: true,        message: 'Cliente actualizado exitosamente',        data: cliente      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }  async eliminar(req, res) {    try {      const { id } = req.params;      await clientService.eliminar(id);      res.json({        success: true,        message: 'Cliente eliminado exitosamente'      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }}module.exports = new ClientController();

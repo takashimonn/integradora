@@ -1,18 +1,12 @@
 const { Sequelize } = require('sequelize');
-
-// Cargar dotenv solo en desarrollo local
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
-
-// Determinar configuración según el entorno
 let sequelizeConfig;
-
-// Si Railway proporciona DATABASE_URL (mysql://user:pass@host:port/db)
 if (process.env.DATABASE_URL) {
   sequelizeConfig = {
     dialect: 'mysql',
-    dialectModule: require('mysql2'), // 🔥 FIX PARA VERCEL
+    dialectModule: require('mysql2'), 
     logging: false,
     dialectOptions: {
       ssl: process.env.DB_SSL === 'true'
@@ -27,22 +21,20 @@ if (process.env.DATABASE_URL) {
     }
   };
 } else {
-  // Variables individuales (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
   const isRailway = process.env.DB_HOST &&
     (process.env.DB_HOST.includes('railway') || process.env.DB_HOST.includes('rlwy.net'));
-
   sequelizeConfig = {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,
     dialect: 'mysql',
-    dialectModule: require('mysql2'), // 🔥 FIX PARA VERCEL
+    dialectModule: require('mysql2'), 
     logging: false,
     protocol: 'tcp',
     dialectOptions: {
       ssl: (process.env.DB_SSL === 'true' || isRailway)
         ? { rejectUnauthorized: false }
         : false,
-      connectTimeout: 60000, // para Railway
+      connectTimeout: 60000, 
     },
     pool: {
       max: 5,
@@ -53,16 +45,11 @@ if (process.env.DATABASE_URL) {
     connectTimeout: 60000,
   };
 }
-
-// Advertencia si faltan variables
 if (!process.env.DATABASE_URL &&
     (!process.env.DB_NAME || !process.env.DB_USER || !process.env.DB_PASSWORD)) {
-
   console.warn('⚠️  Advertencia: Variables de entorno para la base de datos incompletas.');
   console.warn('    Requiere DATABASE_URL ó (DB_NAME, DB_USER, DB_PASSWORD).');
 }
-
-// Crear instancia de Sequelize
 const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, sequelizeConfig)
   : new Sequelize(
@@ -71,16 +58,11 @@ const sequelize = process.env.DATABASE_URL
       process.env.DB_PASSWORD || '',
       sequelizeConfig
     );
-
-// ░░░ FUNCIONES DE APOYO ░░░
-
-// Probar conexión
 async function testConnection() {
   try {
     console.log('\n🔌 Intentando conectar a la base de datos...');
     console.log(`   Host: ${sequelize.config.host || 'N/A'}`);
     console.log(`   DB:   ${sequelize.config.database || 'N/A'}`);
-
     await sequelize.authenticate();
     console.log('✅ Conectado correctamente\n');
     return true;
@@ -96,24 +78,17 @@ async function testConnection() {
     return false;
   }
 }
-
-// Sincronizar modelos
 async function syncDatabase(force = false) {
   try {
-    // En producción o con datos existentes, NO alterar tablas (solo crear si no existen)
-    // alter: false = no modifica tablas existentes, solo crea las que faltan
     await sequelize.sync({ 
-      force: force, // force: true borra todo (solo para desarrollo)
-      alter: false  // alter: false = no modifica tablas existentes (evita errores de foreign keys)
+      force: force, 
+      alter: false  
     });
     console.log('📦 Modelos sincronizados correctamente.');
   } catch (error) {
     console.error('❌ Error al sincronizar base de datos:', error.message);
-    // No lanzar el error para que la app pueda seguir funcionando
-    // Las tablas ya existen, solo falló la sincronización
   }
 }
-
 module.exports = {
   sequelize,
   testConnection,

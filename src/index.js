@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-// Solo cargar dotenv en desarrollo local (no en Vercel)
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -12,8 +11,6 @@ const deliveryRoutes = require('./modules/deliveries/routes/deliveryRoutes');
 const orderRoutes = require('./modules/orders/routes/orderRoutes');
 const clientRoutes = require('./modules/clients/routes/clientRoutes');
 const salesIntegrationRoutes = require('./modules/sales-integration/routes/salesIntegrationRoutes');
-
-// Importar modelos para que Sequelize los registre
 require('./models/Cliente');
 require('./models/Ubicacion');
 require('./models/Sucursal');
@@ -25,33 +22,20 @@ require('./modules/production/models/Produccion');
 require('./modules/deliveries/models/Reparto');
 require('./modules/orders/models/Pedido');
 require('./modules/sales-integration/models/Sincronizacion');
-
-// Configurar relaciones entre modelos
 require('./models/associations');
-
 const app = express();
 const PORT = process.env.PORT || 4000;
-
-// Middleware para leer JSON
 app.use(express.json());
-
-// Servir archivos estáticos (imágenes subidas)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// CORS (para cuando conectes tu app móvil)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
-  
   next();
 });
-
-// Ruta de prueba
 app.get('/', (req, res) => {
   res.json({
     message: 'Servidor Node.js funcionando',
@@ -76,39 +60,19 @@ app.get('/', (req, res) => {
     }
   });
 });
-
-// Rutas de autenticación
 app.use('/api/auth', authRoutes);
-
-// Rutas de productos
 app.use('/api/products', productRoutes);
-
-// Rutas de producción
 app.use('/api/production', productionRoutes);
-
-// Rutas de repartos
 app.use('/api/deliveries', deliveryRoutes);
-
-// Rutas de pedidos
 app.use('/api/orders', orderRoutes);
-
-// Rutas de clientes
 app.use('/api/clients', clientRoutes);
-
-// Rutas de integración de ventas (eleventa)
 app.use('/api/sales-integration', salesIntegrationRoutes);
-
-// Rutas de WhatsApp/IA
 const whatsappRoutes = require('./modules/whatsapp-ai/routes/whatsappRoutes');
-// Middleware para ngrok-free: agregar header que evita la página de advertencia
 app.use('/api/whatsapp/webhook', (req, res, next) => {
-  // Agregar header para que ngrok no muestre la página de advertencia
   res.setHeader('ngrok-skip-browser-warning', 'true');
   next();
 });
 app.use('/api/whatsapp', whatsappRoutes);
-
-// Ruta de prueba de base de datos
 app.get('/test-db', async (req, res) => {
   try {
     const { sequelize } = require('./config/sequelize');
@@ -126,8 +90,6 @@ app.get('/test-db', async (req, res) => {
     });
   }
 });
-
-// Endpoint de diagnóstico completo (para debugging después de dump/restore)
 app.get('/api/diagnostico', async (req, res) => {
   try {
     const { sequelize } = require('./config/sequelize');
@@ -138,8 +100,6 @@ app.get('/api/diagnostico', async (req, res) => {
       errores: [],
       advertencias: []
     };
-
-    // 1. Probar conexión y obtener información detallada
     try {
       await sequelize.authenticate();
       diagnostico.conexion = true;
@@ -147,23 +107,15 @@ app.get('/api/diagnostico', async (req, res) => {
       diagnostico.host = sequelize.config.host;
       diagnostico.port = sequelize.config.port;
       diagnostico.username = sequelize.config.username;
-      
-      // Verificar qué base de datos está usando realmente
       const [dbInfo] = await sequelize.query(`SELECT DATABASE() as current_db`);
       diagnostico.currentDatabase = dbInfo[0]?.current_db || null;
-      
-      // Listar todas las bases de datos disponibles
       const [databases] = await sequelize.query(`SHOW DATABASES`);
       diagnostico.availableDatabases = databases.map(db => Object.values(db)[0]);
-      
     } catch (error) {
       diagnostico.errores.push(`Error de conexión: ${error.message}`);
       return res.status(500).json({ success: false, diagnostico });
     }
-
-    // 2. Listar todas las tablas (con información de schema)
     try {
-      // Método 1: Usando DATABASE()
       const [tablas] = await sequelize.query(`
         SELECT TABLE_NAME, TABLE_SCHEMA
         FROM INFORMATION_SCHEMA.TABLES 
@@ -172,12 +124,8 @@ app.get('/api/diagnostico', async (req, res) => {
       `);
       diagnostico.tablas = tablas.map(t => t.TABLE_NAME);
       diagnostico.tablasConSchema = tablas;
-      
-      // Método 2: Listar tablas directamente
       const [tablasDirectas] = await sequelize.query(`SHOW TABLES`);
       diagnostico.tablasDirectas = tablasDirectas.map(t => Object.values(t)[0]);
-      
-      // Verificar si hay diferencias
       if (diagnostico.tablas.length !== diagnostico.tablasDirectas.length) {
         diagnostico.advertencias.push(
           `Diferencia entre tablas: INFORMATION_SCHEMA muestra ${diagnostico.tablas.length}, SHOW TABLES muestra ${diagnostico.tablasDirectas.length}`
@@ -186,50 +134,37 @@ app.get('/api/diagnostico', async (req, res) => {
     } catch (error) {
       diagnostico.errores.push(`Error al listar tablas: ${error.message}`);
     }
-
-    // 3. Verificar tablas principales y contar registros (múltiples métodos)
     const tablasPrincipales = ['usuarios', 'clientes', 'productos', 'pedidos', 'sucursales'];
-    
-    // Usar la base de datos actual explícitamente
     const currentDb = diagnostico.currentDatabase || diagnostico.database;
-    
     for (const tabla of tablasPrincipales) {
       try {
-        // Método 1: COUNT con SQL directo usando base de datos explícita
         const [resultadoSQL] = await sequelize.query(
           `SELECT COUNT(*) as total FROM \`${currentDb}\`.\`${tabla}\``
         );
         const totalSQL = resultadoSQL[0]?.total || 0;
-        
-        // Método 2: Verificar con SELECT directo (más confiable)
         const [registros] = await sequelize.query(
           `SELECT * FROM \`${currentDb}\`.\`${tabla}\` LIMIT 5`
         );
         const tieneRegistros = registros.length > 0;
-        
-        // Método 3: COUNT sin especificar schema (usando DATABASE())
         const [resultadoDetallado] = await sequelize.query(`
           SELECT COUNT(*) as total 
           FROM \`${tabla}\`
         `);
-        
-        // Método 4: Verificar en INFORMATION_SCHEMA
         const [infoSchema] = await sequelize.query(`
           SELECT TABLE_ROWS 
           FROM INFORMATION_SCHEMA.TABLES 
           WHERE TABLE_SCHEMA = '${currentDb}' 
           AND TABLE_NAME = '${tabla}'
         `);
-        
         diagnostico.datos[tabla] = {
           existe: diagnostico.tablas.includes(tabla) || diagnostico.tablasDirectas?.includes(tabla),
-          total: Number(totalSQL), // Asegurar que sea número
+          total: Number(totalSQL), 
           totalDetallado: Number(resultadoDetallado[0]?.total || 0),
           totalInfoSchema: infoSchema[0] ? Number(infoSchema[0].TABLE_ROWS) : null,
           tieneRegistros: tieneRegistros,
-          muestraRegistro: registros[0] || null, // Primer registro como muestra
+          muestraRegistro: registros[0] || null, 
           totalRegistrosEncontrados: registros.length,
-          rawCount: resultadoSQL[0], // Resultado crudo para debugging
+          rawCount: resultadoSQL[0], 
           database: currentDb
         };
       } catch (error) {
@@ -242,30 +177,22 @@ app.get('/api/diagnostico', async (req, res) => {
         diagnostico.advertencias.push(`Tabla ${tabla}: ${error.message}`);
       }
     }
-
-    // 4. Verificar estructura y datos de tablas principales con más detalle
     const tablasDetalladas = ['usuarios', 'productos', 'clientes', 'sucursales'];
-    
     for (const tabla of tablasDetalladas) {
       if (diagnostico.tablas.includes(tabla) || diagnostico.tablasDirectas?.includes(tabla)) {
         try {
-          // Estructura de columnas usando base de datos explícita
           const [columnas] = await sequelize.query(`
             SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = '${currentDb}' AND TABLE_NAME = '${tabla}'
             ORDER BY ORDINAL_POSITION
           `);
-          
-          // Obtener algunos registros de ejemplo usando base de datos explícita
           const [ejemplos] = await sequelize.query(
             `SELECT * FROM \`${currentDb}\`.\`${tabla}\` LIMIT 5`
           );
-          
           if (!diagnostico.datos[tabla]) {
             diagnostico.datos[tabla] = {};
           }
-          
           diagnostico.datos[tabla].columnas = columnas;
           diagnostico.datos[tabla].ejemplos = ejemplos;
           diagnostico.datos[tabla].totalEjemplos = ejemplos.length;
@@ -280,8 +207,6 @@ app.get('/api/diagnostico', async (req, res) => {
         }
       }
     }
-
-    // 5. Verificar claves foráneas
     try {
       const [foreignKeys] = await sequelize.query(`
         SELECT 
@@ -299,13 +224,11 @@ app.get('/api/diagnostico', async (req, res) => {
     } catch (error) {
       diagnostico.advertencias.push(`Error al verificar claves foráneas: ${error.message}`);
     }
-
     res.json({
       success: true,
       diagnostico,
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -315,8 +238,6 @@ app.get('/api/diagnostico', async (req, res) => {
     });
   }
 });
-
-// Manejo de errores 404 (debe ir ANTES del manejo de errores globales)
 app.use((req, res) => {
   console.log(`❌ Ruta no encontrada: ${req.method} ${req.url}`);
   res.status(404).json({
@@ -340,15 +261,10 @@ app.use((req, res) => {
     }
   });
 });
-
-// Manejo de errores globales
 app.use((err, req, res, next) => {
   console.error('❌ Error en:', req.method, req.url);
   console.error('Error completo:', err);
-  
-  // Si el error tiene un status code, usarlo
   const statusCode = err.statusCode || err.status || 500;
-  
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Error interno del servidor',
@@ -361,21 +277,13 @@ app.use((err, req, res, next) => {
     method: req.method
   });
 });
-
-// Iniciar servidor solo si no está en Vercel
 if (!process.env.VERCEL) {
   app.listen(PORT, async () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}\n`);
-    
-    // Probar conexión y sincronizar modelos
     const connected = await testConnection();
     if (connected) {
-      // Sincronizar modelos (crear tablas si no existen)
-      // force: false = no borra tablas existentes
       await syncDatabase(false);
     }
   });
 }
-
-// Exportar app para Vercel
 module.exports = app;

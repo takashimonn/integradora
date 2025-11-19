@@ -1,214 +1,1 @@
-const deliveryService = require('../services/deliveryService');
-
-class DeliveryController {
-  /**
-   * Obtener todos los repartos
-   * GET /api/deliveries
-   */
-  async obtenerTodos(req, res) {
-    try {
-      const { activo, tipo, fecha, fechaDesde, fechaHasta, destino, clienteFrecuente } = req.query;
-      const filtros = {};
-
-      if (activo !== undefined) {
-        filtros.activo = activo === 'true';
-      }
-
-      if (tipo) {
-        filtros.tipo = tipo;
-      }
-
-      if (fecha) {
-        filtros.fecha = fecha;
-      }
-
-      if (fechaDesde) {
-        filtros.fechaDesde = fechaDesde;
-      }
-
-      if (fechaHasta) {
-        filtros.fechaHasta = fechaHasta;
-      }
-
-      if (destino) {
-        filtros.destino = destino;
-      }
-
-      if (clienteFrecuente !== undefined) {
-        filtros.clienteFrecuente = clienteFrecuente === 'true';
-      }
-
-      const repartos = await deliveryService.obtenerTodos(filtros);
-
-      res.json({
-        success: true,
-        data: repartos,
-        count: repartos.length
-      });
-
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener repartos',
-        error: error.message
-      });
-    }
-  }
-
-  /**
-   * Obtener un reparto por ID
-   * GET /api/deliveries/:id
-   */
-  async obtenerPorId(req, res) {
-    try {
-      const { id } = req.params;
-      const reparto = await deliveryService.obtenerPorId(id);
-
-      res.json({
-        success: true,
-        data: reparto
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Obtener repartos por destino
-   * GET /api/deliveries/destino/:destino
-   */
-  async obtenerPorDestino(req, res) {
-    try {
-      const { destino } = req.params;
-      const { tipo, activo } = req.query;
-      const filtros = {};
-
-      if (tipo) {
-        filtros.tipo = tipo;
-      }
-
-      if (activo !== undefined) {
-        filtros.activo = activo === 'true';
-      }
-
-      const repartos = await deliveryService.obtenerPorDestino(destino, filtros);
-
-      res.json({
-        success: true,
-        data: repartos,
-        count: repartos.length
-      });
-
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Crear un nuevo reparto
-   * POST /api/deliveries
-   */
-  async crear(req, res) {
-    try {
-      const datos = req.body;
-      const reparto = await deliveryService.crear(datos);
-
-      res.status(201).json({
-        success: true,
-        message: 'Reparto registrado exitosamente',
-        data: reparto
-      });
-
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Actualizar un reparto
-   * PUT /api/deliveries/:id
-   */
-  async actualizar(req, res) {
-    try {
-      const { id } = req.params;
-      const datos = req.body;
-      const reparto = await deliveryService.actualizar(id, datos);
-
-      res.json({
-        success: true,
-        message: 'Reparto actualizado exitosamente',
-        data: reparto
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Eliminar un reparto
-   * DELETE /api/deliveries/:id
-   */
-  async eliminar(req, res) {
-    try {
-      const { id } = req.params;
-      await deliveryService.eliminar(id);
-
-      res.json({
-        success: true,
-        message: 'Reparto eliminado exitosamente'
-      });
-
-    } catch (error) {
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Obtener estadísticas de repartos
-   * GET /api/deliveries/estadisticas
-   */
-  async obtenerEstadisticas(req, res) {
-    try {
-      const { fechaDesde, fechaHasta, tipo } = req.query;
-      const estadisticas = await deliveryService.obtenerEstadisticas(fechaDesde, fechaHasta, tipo);
-
-      res.json({
-        success: true,
-        data: estadisticas
-      });
-
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Error al obtener estadísticas',
-        error: error.message
-      });
-    }
-  }
-}
-
-module.exports = new DeliveryController();
-
+const deliveryService = require('../services/deliveryService');class DeliveryController {  async obtenerTodos(req, res) {    try {      const { activo, tipo, fecha, fechaDesde, fechaHasta, destino, clienteFrecuente } = req.query;      const filtros = {};      if (activo !== undefined) {        filtros.activo = activo === 'true';      }      if (tipo) {        filtros.tipo = tipo;      }      if (fecha) {        filtros.fecha = fecha;      }      if (fechaDesde) {        filtros.fechaDesde = fechaDesde;      }      if (fechaHasta) {        filtros.fechaHasta = fechaHasta;      }      if (destino) {        filtros.destino = destino;      }      if (clienteFrecuente !== undefined) {        filtros.clienteFrecuente = clienteFrecuente === 'true';      }      const repartos = await deliveryService.obtenerTodos(filtros);      res.json({        success: true,        data: repartos,        count: repartos.length      });    } catch (error) {      res.status(500).json({        success: false,        message: 'Error al obtener repartos',        error: error.message      });    }  }  async obtenerPorId(req, res) {    try {      const { id } = req.params;      const reparto = await deliveryService.obtenerPorId(id);      res.json({        success: true,        data: reparto      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }  async obtenerPorDestino(req, res) {    try {      const { destino } = req.params;      const { tipo, activo } = req.query;      const filtros = {};      if (tipo) {        filtros.tipo = tipo;      }      if (activo !== undefined) {        filtros.activo = activo === 'true';      }      const repartos = await deliveryService.obtenerPorDestino(destino, filtros);      res.json({        success: true,        data: repartos,        count: repartos.length      });    } catch (error) {      res.status(400).json({        success: false,        message: error.message      });    }  }  async crear(req, res) {    try {      const datos = req.body;      const reparto = await deliveryService.crear(datos);      res.status(201).json({        success: true,        message: 'Reparto registrado exitosamente',        data: reparto      });    } catch (error) {      res.status(400).json({        success: false,        message: error.message      });    }  }  async actualizar(req, res) {    try {      const { id } = req.params;      const datos = req.body;      const reparto = await deliveryService.actualizar(id, datos);      res.json({        success: true,        message: 'Reparto actualizado exitosamente',        data: reparto      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }  async eliminar(req, res) {    try {      const { id } = req.params;      await deliveryService.eliminar(id);      res.json({        success: true,        message: 'Reparto eliminado exitosamente'      });    } catch (error) {      const statusCode = error.message.includes('no encontrado') ? 404 : 400;      res.status(statusCode).json({        success: false,        message: error.message      });    }  }  async obtenerEstadisticas(req, res) {    try {      const { fechaDesde, fechaHasta, tipo } = req.query;      const estadisticas = await deliveryService.obtenerEstadisticas(fechaDesde, fechaHasta, tipo);      res.json({        success: true,        data: estadisticas      });    } catch (error) {      res.status(500).json({        success: false,        message: 'Error al obtener estadísticas',        error: error.message      });    }  }}module.exports = new DeliveryController();
