@@ -163,41 +163,74 @@ app.get('/api/diagnostico', async (req, res) => {
       diagnostico.errores.push(`Error al listar tablas: ${error.message}`);
     }
 
-    // 3. Verificar tablas principales y contar registros
+    // 3. Verificar tablas principales y contar registros (múltiples métodos)
     const tablasPrincipales = ['usuarios', 'clientes', 'productos', 'pedidos', 'sucursales'];
     
     for (const tabla of tablasPrincipales) {
       try {
-        const [resultado] = await sequelize.query(`SELECT COUNT(*) as total FROM \`${tabla}\``);
+        // Método 1: COUNT con SQL directo
+        const [resultadoSQL] = await sequelize.query(`SELECT COUNT(*) as total FROM \`${tabla}\``);
+        const totalSQL = resultadoSQL[0]?.total || 0;
+        
+        // Método 2: Verificar con SELECT directo (más confiable)
+        const [registros] = await sequelize.query(`SELECT * FROM \`${tabla}\` LIMIT 1`);
+        const tieneRegistros = registros.length > 0;
+        
+        // Método 3: COUNT con información del resultado
+        const [resultadoDetallado] = await sequelize.query(`
+          SELECT COUNT(*) as total 
+          FROM \`${tabla}\`
+        `);
+        
         diagnostico.datos[tabla] = {
           existe: diagnostico.tablas.includes(tabla),
-          total: resultado[0]?.total || 0
+          total: Number(totalSQL), // Asegurar que sea número
+          totalDetallado: Number(resultadoDetallado[0]?.total || 0),
+          tieneRegistros: tieneRegistros,
+          muestraRegistro: registros[0] || null, // Primer registro como muestra
+          rawCount: resultadoSQL[0] // Resultado crudo para debugging
         };
       } catch (error) {
         diagnostico.datos[tabla] = {
           existe: diagnostico.tablas.includes(tabla),
-          error: error.message
+          error: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         };
         diagnostico.advertencias.push(`Tabla ${tabla}: ${error.message}`);
       }
     }
 
-    // 4. Verificar estructura de tabla usuarios (la más crítica)
-    if (diagnostico.tablas.includes('usuarios')) {
-      try {
-        const [columnas] = await sequelize.query(`
-          SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
-          FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios'
-          ORDER BY ORDINAL_POSITION
-        `);
-        diagnostico.datos.usuarios.columnas = columnas;
-        
-        // Verificar si hay usuarios
-        const [usuarios] = await sequelize.query(`SELECT id_usuario, nombre, email, activo FROM usuarios LIMIT 5`);
-        diagnostico.datos.usuarios.ejemplos = usuarios;
-      } catch (error) {
-        diagnostico.errores.push(`Error al verificar estructura de usuarios: ${error.message}`);
+    // 4. Verificar estructura y datos de tablas principales con más detalle
+    const tablasDetalladas = ['usuarios', 'productos', 'clientes', 'sucursales'];
+    
+    for (const tabla of tablasDetalladas) {
+      if (diagnostico.tablas.includes(tabla)) {
+        try {
+          // Estructura de columnas
+          const [columnas] = await sequelize.query(`
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${tabla}'
+            ORDER BY ORDINAL_POSITION
+          `);
+          
+          // Obtener algunos registros de ejemplo
+          const [ejemplos] = await sequelize.query(`SELECT * FROM \`${tabla}\` LIMIT 3`);
+          
+          if (!diagnostico.datos[tabla]) {
+            diagnostico.datos[tabla] = {};
+          }
+          
+          diagnostico.datos[tabla].columnas = columnas;
+          diagnostico.datos[tabla].ejemplos = ejemplos;
+          diagnostico.datos[tabla].totalEjemplos = ejemplos.length;
+        } catch (error) {
+          if (!diagnostico.datos[tabla]) {
+            diagnostico.datos[tabla] = {};
+          }
+          diagnostico.datos[tabla].errorEstructura = error.message;
+          diagnostico.advertencias.push(`Error al verificar estructura de ${tabla}: ${error.message}`);
+        }
       }
     }
 
