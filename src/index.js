@@ -127,21 +127,158 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Manejo de errores 404
+// Endpoint de diagnóstico completo (para debugging después de dump/restore)
+app.get('/api/diagnostico', async (req, res) => {
+  try {
+    const { sequelize } = require('./config/sequelize');
+    const diagnostico = {
+      conexion: false,
+      tablas: [],
+      datos: {},
+      errores: [],
+      advertencias: []
+    };
+
+    // 1. Probar conexión
+    try {
+      await sequelize.authenticate();
+      diagnostico.conexion = true;
+      diagnostico.database = sequelize.config.database;
+      diagnostico.host = sequelize.config.host;
+    } catch (error) {
+      diagnostico.errores.push(`Error de conexión: ${error.message}`);
+      return res.status(500).json({ success: false, diagnostico });
+    }
+
+    // 2. Listar todas las tablas
+    try {
+      const [tablas] = await sequelize.query(`
+        SELECT TABLE_NAME 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE()
+        ORDER BY TABLE_NAME
+      `);
+      diagnostico.tablas = tablas.map(t => t.TABLE_NAME);
+    } catch (error) {
+      diagnostico.errores.push(`Error al listar tablas: ${error.message}`);
+    }
+
+    // 3. Verificar tablas principales y contar registros
+    const tablasPrincipales = ['usuarios', 'clientes', 'productos', 'pedidos', 'sucursales'];
+    
+    for (const tabla of tablasPrincipales) {
+      try {
+        const [resultado] = await sequelize.query(`SELECT COUNT(*) as total FROM \`${tabla}\``);
+        diagnostico.datos[tabla] = {
+          existe: diagnostico.tablas.includes(tabla),
+          total: resultado[0]?.total || 0
+        };
+      } catch (error) {
+        diagnostico.datos[tabla] = {
+          existe: diagnostico.tablas.includes(tabla),
+          error: error.message
+        };
+        diagnostico.advertencias.push(`Tabla ${tabla}: ${error.message}`);
+      }
+    }
+
+    // 4. Verificar estructura de tabla usuarios (la más crítica)
+    if (diagnostico.tablas.includes('usuarios')) {
+      try {
+        const [columnas] = await sequelize.query(`
+          SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios'
+          ORDER BY ORDINAL_POSITION
+        `);
+        diagnostico.datos.usuarios.columnas = columnas;
+        
+        // Verificar si hay usuarios
+        const [usuarios] = await sequelize.query(`SELECT id_usuario, nombre, email, activo FROM usuarios LIMIT 5`);
+        diagnostico.datos.usuarios.ejemplos = usuarios;
+      } catch (error) {
+        diagnostico.errores.push(`Error al verificar estructura de usuarios: ${error.message}`);
+      }
+    }
+
+    // 5. Verificar claves foráneas
+    try {
+      const [foreignKeys] = await sequelize.query(`
+        SELECT 
+          TABLE_NAME,
+          COLUMN_NAME,
+          CONSTRAINT_NAME,
+          REFERENCED_TABLE_NAME,
+          REFERENCED_COLUMN_NAME
+        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+        ORDER BY TABLE_NAME
+      `);
+      diagnostico.foreignKeys = foreignKeys;
+    } catch (error) {
+      diagnostico.advertencias.push(`Error al verificar claves foráneas: ${error.message}`);
+    }
+
+    res.json({
+      success: true,
+      diagnostico,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Error en diagnóstico',
+      detalle: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Manejo de errores 404 (debe ir ANTES del manejo de errores globales)
 app.use((req, res) => {
+  console.log(`❌ Ruta no encontrada: ${req.method} ${req.url}`);
   res.status(404).json({
     success: false,
-    message: 'Ruta no encontrada'
+    message: 'Ruta no encontrada',
+    method: req.method,
+    url: req.url,
+    availableEndpoints: {
+      root: 'GET /',
+      testDb: 'GET /test-db',
+      diagnostico: 'GET /api/diagnostico',
+      auth: {
+        registro: 'POST /api/auth/registro',
+        login: 'POST /api/auth/login',
+        checkUser: 'GET /api/auth/check-user/:email',
+        resetPassword: 'POST /api/auth/reset-password'
+      },
+      products: 'GET, POST, PUT, DELETE /api/products',
+      clients: 'GET, POST, PUT, DELETE /api/clients',
+      orders: 'GET, POST, PUT, DELETE /api/orders'
+    }
   });
 });
 
 // Manejo de errores globales
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
+  console.error('❌ Error en:', req.method, req.url);
+  console.error('Error completo:', err);
+  
+  // Si el error tiene un status code, usarlo
+  const statusCode = err.statusCode || err.status || 500;
+  
+  res.status(statusCode).json({
     success: false,
-    message: 'Error interno del servidor',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Error desconocido'
+    message: err.message || 'Error interno del servidor',
+    error: process.env.NODE_ENV === 'development' || process.env.VERCEL ? {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    } : 'Error desconocido',
+    path: req.url,
+    method: req.method
   });
 });
 
