@@ -100,10 +100,17 @@ async function testConnection() {
 // Sincronizar modelos
 async function syncDatabase(force = false) {
   try {
-    await sequelize.sync({ force, alter: !force });
+    // En producción o con datos existentes, NO alterar tablas (solo crear si no existen)
+    // alter: false = no modifica tablas existentes, solo crea las que faltan
+    await sequelize.sync({ 
+      force: force, // force: true borra todo (solo para desarrollo)
+      alter: false  // alter: false = no modifica tablas existentes (evita errores de foreign keys)
+    });
     console.log('📦 Modelos sincronizados correctamente.');
   } catch (error) {
     console.error('❌ Error al sincronizar base de datos:', error.message);
+    // No lanzar el error para que la app pueda seguir funcionando
+    // Las tablas ya existen, solo falló la sincronización
   }
 }
 
