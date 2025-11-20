@@ -58,21 +58,36 @@ class ProductController {
         unidad_medida: unidad_medida || null
       };
 
-      const imagenPath = req.file ? `/uploads/products/${req.file.filename}` : null;
+      let imagenPath = null;
+      if (req.file) {
+        if (process.env.VERCEL) {
+          if (req.file.buffer) {
+            const base64Image = req.file.buffer.toString('base64');
+            const dataUri = `data:${req.file.mimetype};base64,${base64Image}`;
+            imagenPath = dataUri;
+          } else {
+            return res.status(400).json({
+              success: false,
+              message: 'Error al procesar la imagen. Por favor, intenta sin imagen o usa un servicio de almacenamiento en la nube.'
+            });
+          }
+        } else {
+          imagenPath = `/uploads/products/${req.file.filename}`;
+        }
+      }
       
       const producto = await productService.crear(datos, imagenPath);
+      
       res.status(201).json({
         success: true,
         message: 'Producto creado exitosamente',
         data: producto
       });
     } catch (error) {
-      console.error('Error al crear producto:', error);
       const statusCode = error.message.includes('requerido') || error.message.includes('inválido') ? 400 : 500;
       res.status(statusCode).json({
         success: false,
-        message: error.message || 'Datos inválidos. Verifica que todos los campos estén correctos.',
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        message: error.message || 'Datos inválidos. Verifica que todos los campos estén correctos.'
       });
     }
   }
